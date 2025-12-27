@@ -4,7 +4,7 @@ use std::fs;
 
 use lox_interpreter::lox::Lox;
 
-fn lox_error(line: usize, msg: String) {
+fn scanner_error(line: usize, msg: String) {
     println!("ERROR: Line {}, {}", line, msg);
 }
 

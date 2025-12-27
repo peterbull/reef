@@ -6,7 +6,7 @@ edition = "2024"
 rust-version = "1.91"
 
 [[bin]]
-name = "lox"
+name = "interpreter-rs"
 path = "src/main.rs"
 
 [lib]
