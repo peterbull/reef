@@ -1,5 +1,6 @@
 pub mod expr;
 pub mod lox;
+pub mod parser;
 pub mod scanner;
 pub mod token;
 pub use lox::Lox;

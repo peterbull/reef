@@ -7,6 +7,7 @@ impl Lox {
     pub fn new() -> Self {
         Lox {}
     }
+
     pub fn run(&self, text: &str) {
         let mut scanner = Scanner::new(text.to_string());
         scanner.scan_tokens();
