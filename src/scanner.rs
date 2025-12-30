@@ -213,12 +213,13 @@ impl Scanner {
         }
     }
 
-    pub fn scan_tokens(&mut self) {
+    pub fn scan_tokens(&mut self) -> Vec<Token> {
         while !self.is_at_end() {
             self.start = self.current;
             let c = self.advance();
             self.handle_token(&c);
         }
+        self.tokens.clone()
     }
 
     pub fn print_info(&self) {

@@ -1,6 +1,7 @@
 #![allow(unused_variables, dead_code)]
 use crate::{Literal, Token};
 
+#[derive(Debug)]
 pub enum Expr {
     Assign {
         name: Token,
