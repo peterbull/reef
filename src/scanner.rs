@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use crate::token::{Literal, Token, TokenType};
+use crate::{
+    error::lox_error,
+    token::{Literal, Token, TokenType},
+};
 
 fn scanner_error(line: usize, msg: String) {
     println!("ERROR: Line {}, {}", line, msg);
@@ -125,7 +128,7 @@ impl Scanner {
                 } else if self.is_alpha(c) {
                     self.identifier();
                 } else {
-                    scanner_error(self.line, "unexpected character".to_string());
+                    lox_error(self.line, "unexpected character");
                 }
             }
         }
