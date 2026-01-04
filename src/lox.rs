@@ -1,5 +1,6 @@
 use std::io::{self, Write};
 
+use crate::error::LoxError;
 use crate::parser::Parser;
 use crate::scanner::Scanner;
 
@@ -15,8 +16,8 @@ impl Lox {
         scanner.print_info();
         let mut parser = Parser::new(tokens);
 
-        let expression = parser.expression();
-        println!("expression: {:#?}", expression);
+        let expressions = parser.parse();
+        println!("expression: {:#?}", expressions);
     }
     pub fn run_repl(&self) -> io::Result<()> {
         println!("Starting REPL...");
