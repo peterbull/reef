@@ -3,7 +3,7 @@
 use crate::{
     Literal, Token, TokenType,
     error::{LoxError, lox_error_at_line},
-    expr::Expr,
+    expr::ExprKind,
 };
 
 /*
@@ -79,7 +79,7 @@ impl Parser {
                 == token_type
         }
     }
-    pub fn parse(&mut self) -> Vec<Result<Expr, LoxError>> {
+    pub fn parse(&mut self) -> Vec<Result<ExprKind, LoxError>> {
         let mut results = Vec::new();
         while !self.is_at_end() {
             let expr = self.expression();
@@ -97,11 +97,11 @@ impl Parser {
         }
         results
     }
-    pub fn expression(&mut self) -> Result<Expr, LoxError> {
+    pub fn expression(&mut self) -> Result<ExprKind, LoxError> {
         self.equality()
     }
 
-    fn equality(&mut self) -> Result<Expr, LoxError> {
+    fn equality(&mut self) -> Result<ExprKind, LoxError> {
         let mut expr = self.comparison()?;
         while self.match_type(&[TokenType::BangEqual, TokenType::EqualEqual]) {
             let operator = self
@@ -109,7 +109,7 @@ impl Parser {
                 .expect("token should exist after match")
                 .clone();
             let right = self.comparison()?;
-            expr = Expr::Binary {
+            expr = ExprKind::Binary {
                 left: Box::new(expr),
                 operator,
                 right: Box::new(right),
@@ -117,7 +117,7 @@ impl Parser {
         }
         Ok(expr)
     }
-    fn comparison(&mut self) -> Result<Expr, LoxError> {
+    fn comparison(&mut self) -> Result<ExprKind, LoxError> {
         let mut expr = self.term()?;
         while self.match_type(&[
             TokenType::Less,
@@ -130,7 +130,7 @@ impl Parser {
                 .expect("token should exist after match")
                 .clone();
             let right = self.term()?;
-            expr = Expr::Binary {
+            expr = ExprKind::Binary {
                 left: Box::new(expr),
                 operator,
                 right: Box::new(right),
@@ -138,7 +138,7 @@ impl Parser {
         }
         Ok(expr)
     }
-    fn term(&mut self) -> Result<Expr, LoxError> {
+    fn term(&mut self) -> Result<ExprKind, LoxError> {
         let mut expr = self.factor()?;
         while self.match_type(&[TokenType::Plus, TokenType::Minus]) {
             let operator = self
@@ -146,7 +146,7 @@ impl Parser {
                 .expect("token should exist after match")
                 .clone();
             let right = self.factor()?;
-            expr = Expr::Binary {
+            expr = ExprKind::Binary {
                 left: Box::new(expr),
                 operator,
                 right: Box::new(right),
@@ -155,7 +155,7 @@ impl Parser {
         Ok(expr)
     }
 
-    fn factor(&mut self) -> Result<Expr, LoxError> {
+    fn factor(&mut self) -> Result<ExprKind, LoxError> {
         let mut expr = self.unary()?;
         while self.match_type(&[TokenType::Slash, TokenType::Star]) {
             let operator = self
@@ -163,7 +163,7 @@ impl Parser {
                 .expect("token should exist after match")
                 .clone();
             let right = self.factor()?;
-            expr = Expr::Binary {
+            expr = ExprKind::Binary {
                 left: Box::new(expr),
                 operator,
                 right: Box::new(right),
@@ -172,14 +172,14 @@ impl Parser {
         Ok(expr)
     }
 
-    fn unary(&mut self) -> Result<Expr, LoxError> {
+    fn unary(&mut self) -> Result<ExprKind, LoxError> {
         if self.match_type(&[TokenType::Bang, TokenType::Minus]) {
             let operator = self
                 .previous()
                 .expect("token should exist after match")
                 .clone();
             let right = self.unary()?;
-            return Ok(Expr::Unary {
+            return Ok(ExprKind::Unary {
                 operator,
                 right: Box::new(right),
             });
@@ -226,19 +226,19 @@ impl Parser {
         }
     }
 
-    fn primary(&mut self) -> Result<Expr, LoxError> {
+    fn primary(&mut self) -> Result<ExprKind, LoxError> {
         if self.match_type(&[TokenType::False]) {
-            return Ok(Expr::Literal {
+            return Ok(ExprKind::Literal {
                 value: Literal::Boolean(false),
             });
         }
         if self.match_type(&[TokenType::True]) {
-            return Ok(Expr::Literal {
+            return Ok(ExprKind::Literal {
                 value: Literal::Boolean(true),
             });
         }
         if self.match_type(&[TokenType::Nil]) {
-            return Ok(Expr::Literal {
+            return Ok(ExprKind::Literal {
                 value: Literal::Nil,
             });
         }
@@ -246,7 +246,7 @@ impl Parser {
             let token = self.previous().expect("should be tokens here").clone();
             let literal_value = token.literal.expect("should be literal here");
 
-            return Ok(Expr::Literal {
+            return Ok(ExprKind::Literal {
                 value: literal_value,
             });
         }
@@ -258,7 +258,10 @@ impl Parser {
                 "there should be a ')' following a '('",
             )?;
         };
-
+        self.consume(
+            TokenType::Semicolon,
+            "expected semicolon at end of statement",
+        )?;
         Err(lox_error_at_line(
             &self.tokens[self.current],
             "expected primary expression",

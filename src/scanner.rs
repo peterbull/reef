@@ -221,6 +221,8 @@ impl Scanner {
             let c = self.advance();
             self.handle_token(&c);
         }
+        self.tokens
+            .push(Token::new(TokenType::Eof, "".to_string(), None, self.line));
         self.tokens.clone()
     }
 
