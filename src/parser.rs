@@ -28,6 +28,7 @@ pub struct Parser {
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
+        println!("parser tokens: {:?}", tokens);
         Parser { tokens, current: 0 }
     }
     fn advance(&mut self) -> Option<&Token> {

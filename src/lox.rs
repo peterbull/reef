@@ -1,6 +1,7 @@
 use std::io::{self, Write};
 
 use crate::error::LoxError;
+use crate::interpreter::{self, Interpreter};
 use crate::parser::Parser;
 use crate::scanner::Scanner;
 
