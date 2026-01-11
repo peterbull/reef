@@ -8,7 +8,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
 
     let command = &args[1];
-    let lox = Lox::new();
+    let mut lox = Lox::new();
     match command.as_str() {
         "tokenize" => {
             let filename = &args[2];

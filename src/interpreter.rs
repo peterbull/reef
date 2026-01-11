@@ -5,8 +5,10 @@ use crate::{
 
 pub struct Interpreter {}
 impl Interpreter {
-    pub fn eval_expression(expr_kind: &ExprKind) -> Result<Value, LoxError> {
+    pub fn interpret(expr_kind: &ExprKind) -> Result<Value, LoxError> {
         let expr = Expr::new();
-        expr.evaluate(expr_kind)
+        let value = expr.evaluate(expr_kind);
+        println!("{:?}", &value);
+        value
     }
 }

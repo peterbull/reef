@@ -1,10 +1,6 @@
 #![allow(unused_variables, dead_code)]
 
-use crate::{
-    Literal, Token, TokenType,
-    error::{LoxError, lox_error_at_line},
-    expr::ExprKind,
-};
+use crate::{Literal, Token, TokenType, error::LoxError, expr::ExprKind};
 
 /*
   Extended Backus-Naur Form (ebnf)
@@ -197,7 +193,7 @@ impl Parser {
         if self.check(&token_type) {
             Ok(self.advance().expect("should be tokens in consume"))
         } else {
-            Err(lox_error_at_line(
+            Err(LoxError::lox_error_at_line(
                 self.peek().expect("should be token here"),
                 message,
             ))
@@ -271,7 +267,7 @@ impl Parser {
         //     TokenType::Semicolon,
         //     "expected semicolon at end of statement",
         // )?;
-        Err(lox_error_at_line(
+        Err(LoxError::lox_error_at_line(
             &self.tokens[self.current],
             "expected primary expression",
         ))
