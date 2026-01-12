@@ -6,7 +6,7 @@ edition = "2024"
 rust-version = "1.91"
 
 [[bin]]
-name = "interpreter"
+name = "reef"
 path = "src/main.rs"
 
 

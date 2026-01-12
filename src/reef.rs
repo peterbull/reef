@@ -1,9 +1,10 @@
-use std::io::{self, Write};
-
+use crate::ast_printer::AstPrinter;
 use crate::error::ReefError;
 use crate::interpreter::Interpreter;
 use crate::parser::Parser;
 use crate::scanner::Scanner;
+use std::fs;
+use std::io::{self, Write};
 
 pub struct Reef {
     had_error: bool,
@@ -19,22 +20,39 @@ impl Reef {
 
     pub fn run(&mut self, text: &str) {
         let mut scanner = Scanner::new(text.to_string());
+
         let tokens = scanner.scan_tokens();
-        scanner.print_info();
         let mut parser = Parser::new(tokens);
+
+        let interpreter = Interpreter::new();
+
+        scanner.print_info();
 
         let expressions = parser.parse();
         println!("expressions: {:#?}", expressions);
-        let interpreter = Interpreter::new();
         for expression in expressions {
             let expr_val = match expression {
-                Ok(expr) => interpreter.interpret(&expr),
+                Ok(expr) => {
+                    println!("ast: {}", AstPrinter::print(&expr));
+                    interpreter.interpret(&expr)
+                }
                 Err(e) => Err(e),
             };
             match expr_val {
                 Ok(_) => {}
                 Err(e) => self.report_error(&e),
             }
+        }
+    }
+    pub fn run_file(&mut self, filename: &str) {
+        let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
+            eprintln!("Failed to read file {}", filename);
+            String::new()
+        });
+        if !file_contents.is_empty() {
+            self.run(&file_contents);
+        } else {
+            println!("EOF  null");
         }
         if self.had_error {
             std::process::exit(65)
@@ -54,6 +72,8 @@ impl Reef {
                 break;
             }
             self.run(&input_text);
+            self.had_runtime_error = false;
+            self.had_error = false;
         }
         Ok(())
     }
