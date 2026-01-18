@@ -22,7 +22,7 @@ impl Reef {
         }
     }
 
-    pub fn run(&mut self, text: &str) {
+    pub fn run(&mut self, text: &str) -> Result<(), ReefError> {
         let mut scanner = Scanner::new(text.to_string());
 
         let tokens = scanner.scan_tokens();
@@ -32,21 +32,10 @@ impl Reef {
 
         scanner.print_info();
 
-        let stmts = parser.parse();
+        let stmts = parser.parse()?;
         println!("statements: {:#?}", stmts);
-        // for expression in expressions {
-        //     let expr_val = match expression {
-        //         Ok(expr) => {
-        //             println!("ast: {}", AstPrinter::print(&expr));
-        //             interpreter.interpret(&expr)
-        //         }
-        //         Err(e) => Err(e),
-        //     };
-        //     match expr_val {
-        //         Ok(_) => {}
-        //         Err(e) => self.report_error(&e),
-        //     }
-        // }
+        interpreter.interpret(stmts)?;
+        Ok(())
     }
     pub fn run_file(&mut self, filename: &str) {
         let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {

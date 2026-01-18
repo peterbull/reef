@@ -1,6 +1,7 @@
 use crate::{
     error::ReefError,
     expr::{Expr, ExprKind, Value},
+    stmt::{Stmt, StmtKind},
 };
 
 pub struct Interpreter {}
@@ -16,10 +17,23 @@ impl Interpreter {
             Value::Nil => String::from("nil"),
         }
     }
-    pub fn interpret(&self, expr_kind: &ExprKind) -> Result<Value, ReefError> {
-        let expr = Expr::new();
-        let value = expr.evaluate(expr_kind)?;
-        println!("result: {}", self.stringify(&value));
-        Ok(value)
+    pub fn execute(&self, stmt: &StmtKind) -> Result<(), ReefError> {
+        match stmt {
+            StmtKind::Expression { expr } => Expr::evaluate(&expr)?,
+            StmtKind::Print { expr } => {
+                let value = Expr::evaluate(&expr)?;
+                println!("{}", self.stringify(&value));
+                value
+            }
+            _ => todo!(),
+        };
+        Ok(())
+    }
+
+    pub fn interpret(&self, stmts: Vec<StmtKind>) -> Result<(), ReefError> {
+        for stmt in stmts {
+            self.execute(&stmt)?
+        }
+        Ok(())
     }
 }

@@ -36,6 +36,7 @@ impl Parser {
             statements: Vec::new(),
         }
     }
+
     fn advance(&mut self) -> Option<&Token> {
         if !self.is_at_end() {
             self.current += 1;
@@ -64,6 +65,7 @@ impl Parser {
             .map(|token| token.token_type == TokenType::Eof)
             .unwrap_or(true)
     }
+
     fn match_type(&mut self, types: &[TokenType]) -> bool {
         for token_type in types {
             if self.check(token_type) {
@@ -78,49 +80,59 @@ impl Parser {
         if self.is_at_end() {
             false
         } else {
-            &self
-                .peek()
-                .expect("peek shouldn't be hitting the end here")
-                .token_type
-                == token_type
+            self.peek()
+                .is_none_or(|token| &token.token_type == token_type)
         }
-    }
-    pub fn parse(&mut self) -> Vec<StmtKind> {
-        while !self.is_at_eof() {
-            let stmt = self.statement();
-            self.statements.push(stmt)
-        }
-        self.statements.clone()
     }
 
-    pub fn expression(&mut self) -> Result<ExprKind, ReefError> {
+    pub fn parse(&mut self) -> Result<Vec<StmtKind>, ReefError> {
+        while !self.is_at_eof() {
+            match self.statement() {
+                Ok(stmt) => self.statements.push(stmt),
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(self.statements.clone())
+    }
+
+    fn expression(&mut self) -> Result<ExprKind, ReefError> {
         self.equality()
     }
-    fn statement(&mut self) -> StmtKind {
-        let expr = self.expression();
-        match expr {
-            Ok(expr) => {
-                if let Err(e) =
-                    self.consume(TokenType::Semicolon, "expected semicolon after expression")
-                {
-                    return StmtKind::Error { e };
-                }
 
-                StmtKind::Expression { expr }
+    fn expression_statement(&mut self) -> Result<StmtKind, ReefError> {
+        let expr = self.expression()?;
+        self.consume(TokenType::Semicolon, "expected semicolon after expression")?;
+        Ok(StmtKind::Expression { expr })
+    }
+    fn print_statement(&mut self) -> Result<StmtKind, ReefError> {
+        self.advance();
+        let expr = self.expression()?;
+        self.consume(TokenType::Semicolon, "expected semicolon after expression")?;
+        Ok(StmtKind::Print { expr })
+    }
+
+    fn statement(&mut self) -> Result<StmtKind, ReefError> {
+        if let Some(token) = self.peek() {
+            match token.token_type {
+                TokenType::Print => self.print_statement(),
+                _ => self.expression_statement(),
             }
-            Err(e) => {
-                self.synchronize();
-                StmtKind::Error { e }
+        } else {
+            self.synchronize();
+            match self.peek() {
+                Some(token) => Err(ReefError::reef_error_at_line(
+                    token,
+                    "Error parsing expression",
+                )),
+                None => Err(ReefError::reef_general_error("Error parsing expression")),
             }
         }
     }
+
     fn equality(&mut self) -> Result<ExprKind, ReefError> {
         let mut expr = self.comparison()?;
         while self.match_type(&[TokenType::BangEqual, TokenType::EqualEqual]) {
-            let operator = self
-                .previous()
-                .expect("token should exist after match")
-                .clone();
+            let operator = self.previous().expect("").clone();
             let right = self.comparison()?;
             expr = ExprKind::Binary {
                 left: Box::new(expr),
@@ -130,6 +142,7 @@ impl Parser {
         }
         Ok(expr)
     }
+
     fn comparison(&mut self) -> Result<ExprKind, ReefError> {
         let mut expr = self.term()?;
         while self.match_type(&[
@@ -274,10 +287,7 @@ impl Parser {
                 expression: Box::new(expr),
             });
         }
-        // self.consume(
-        //     TokenType::Semicolon,
-        //     "expected semicolon at end of statement",
-        // )?;
+
         Err(ReefError::reef_error_at_line(
             &self.tokens[self.current],
             "expected primary expression",

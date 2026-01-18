@@ -102,14 +102,8 @@ pub enum ExprKind {
 #[derive(Debug)]
 pub struct Expr {}
 impl Expr {
-    pub fn new() -> Self {
-        Expr {}
-    }
-    fn check_number_operand(
-        &self,
-        operator: &Token,
-        right_operand: &Value,
-    ) -> Result<(), ReefError> {
+    // TODO: move this stuff to a module or a submodule
+    fn check_number_operand(operator: &Token, right_operand: &Value) -> Result<(), ReefError> {
         match right_operand {
             Value::Number(_) => Ok(()),
             _ => Err(ReefError::reef_runtime_error(
@@ -119,7 +113,6 @@ impl Expr {
         }
     }
     fn check_number_operands(
-        &self,
         operator: &Token,
         left_operand: &Value,
         right_operand: &Value,
@@ -132,7 +125,7 @@ impl Expr {
             )),
         }
     }
-    fn is_equal(&self, a: &Value, b: &Value) -> bool {
+    fn is_equal(a: &Value, b: &Value) -> bool {
         match (a, b) {
             (Value::Number(l), Value::Number(r)) => l == r,
             (Value::String(l), Value::String(r)) => l == r,
@@ -144,116 +137,140 @@ impl Expr {
         }
     }
 
-    pub fn evaluate(&self, data: &ExprKind) -> Result<Value, ReefError> {
-        match data {
+    fn evaluate_binary(
+        left: &ExprKind,
+        operator: &Token,
+        right: &ExprKind,
+    ) -> Result<Value, ReefError> {
+        let left_val = Expr::evaluate(left)?;
+        let right_val = Expr::evaluate(right)?;
+        match operator.token_type {
+            TokenType::Plus => match (&left_val, &right_val) {
+                (Value::Number(l), Value::Number(r)) => {
+                    let addition_result = l + r;
+                    Ok(Value::Number(addition_result))
+                }
+                (Value::String(l), Value::String(r)) => {
+                    let concat_result = format!("{}{}", l, r);
+                    Ok(Value::String(concat_result))
+                }
+
+                _ => Err(ReefError::reef_runtime_error(
+                    operator,
+                    "Binary evaluation error",
+                )),
+            },
+            TokenType::Minus => match (&left_val, &right_val) {
+                (Value::Number(l), Value::Number(r)) => {
+                    let subtraction_result = l - r;
+                    Ok(Value::Number(subtraction_result))
+                }
+                _ => Err(ReefError::reef_runtime_error(
+                    operator,
+                    "Binary evaluation error",
+                )),
+            },
+            TokenType::Star => match (&left_val, &right_val) {
+                (Value::Number(l), Value::Number(r)) => {
+                    let multiplication_result = l * r;
+                    Ok(Value::Number(multiplication_result))
+                }
+                _ => Err(ReefError::reef_runtime_error(
+                    operator,
+                    "Binary evaluation error",
+                )),
+            },
+            TokenType::Slash => match (&left_val, &right_val) {
+                (Value::Number(l), Value::Number(r)) => {
+                    let division_result = l / r;
+                    Ok(Value::Number(division_result))
+                }
+                _ => Err(ReefError::reef_runtime_error(
+                    operator,
+                    "Binary evaluation error",
+                )),
+            },
+
+            TokenType::EqualEqual => Ok(Value::Boolean(Expr::is_equal(&left_val, &right_val))),
+            TokenType::BangEqual => Ok(Value::Boolean(!Expr::is_equal(&left_val, &right_val))),
+            TokenType::GreaterEqual => match (&left_val, &right_val) {
+                (Value::Number(l), Value::Number(r)) => Ok(Value::Boolean(l >= r)),
+                _ => Err(ReefError::reef_runtime_error(
+                    operator,
+                    "Binary evaluation error",
+                )),
+            },
+            TokenType::Greater => match (&left_val, &right_val) {
+                (Value::Number(l), Value::Number(r)) => Ok(Value::Boolean(l > r)),
+                _ => Err(ReefError::reef_runtime_error(
+                    operator,
+                    "Binary evaluation error",
+                )),
+            },
+            TokenType::LessEqual => match (&left_val, &right_val) {
+                (Value::Number(l), Value::Number(r)) => Ok(Value::Boolean(l <= r)),
+                _ => Err(ReefError::reef_runtime_error(
+                    operator,
+                    "Binary evaluation error",
+                )),
+            },
+            TokenType::Less => match (&left_val, &right_val) {
+                (Value::Number(l), Value::Number(r)) => Ok(Value::Boolean(l < r)),
+                _ => Err(ReefError::reef_runtime_error(
+                    operator,
+                    "Binary evaluation error",
+                )),
+            },
+            _ => Err(ReefError::reef_runtime_error(
+                operator,
+                "Binary evaluation error",
+            )),
+        }
+    }
+
+    fn evaluate_unary(operator: &Token, right: &ExprKind) -> Result<Value, ReefError> {
+        let right_val = Expr::evaluate(right)?;
+        match operator.token_type {
+            TokenType::Minus => match right_val {
+                Value::Number(right_val) => Ok(Value::Number(-right_val)),
+                _ => Err(ReefError::reef_runtime_error(
+                    operator,
+                    "Operand must be a number",
+                )),
+            },
+            TokenType::Bang => Ok(Value::Boolean(!right_val.is_truthy())),
+            _ => Err(ReefError::reef_runtime_error(
+                operator,
+                "invalid unary operator",
+            )),
+        }
+    }
+
+    fn evaluate_literal(value: &Literal) -> Result<Value, ReefError> {
+        Ok(match value {
+            Literal::String(s) => Value::String(s.clone()),
+            Literal::Number(n) => Value::Number(*n),
+            Literal::Boolean(b) => Value::Boolean(*b),
+            Literal::Nil => Value::Nil,
+        })
+    }
+
+    pub fn evaluate(expr: &ExprKind) -> Result<Value, ReefError> {
+        match expr {
             // ExprKind::Assign { name, value } => {}
             ExprKind::Binary {
                 left,
                 operator,
                 right,
-            } => {
-                let left_val = self.evaluate(left)?;
-                let right_val = self.evaluate(right)?;
-                match operator.token_type {
-                    TokenType::Plus => match (&left_val, &right_val) {
-                        (Value::Number(l), Value::Number(r)) => {
-                            let addition_result = l + r;
-                            Ok(Value::Number(addition_result))
-                        }
-                        (Value::String(l), Value::String(r)) => {
-                            let concat_result = format!("{}{}", l, r);
-                            Ok(Value::String(concat_result))
-                        }
-
-                        _ => Err(ReefError::reef_runtime_error(
-                            operator,
-                            "Binary evaluation error",
-                        )),
-                    },
-                    TokenType::Minus => match (&left_val, &right_val) {
-                        (Value::Number(l), Value::Number(r)) => {
-                            let subtraction_result = l - r;
-                            Ok(Value::Number(subtraction_result))
-                        }
-                        _ => Err(ReefError::reef_runtime_error(
-                            operator,
-                            "Binary evaluation error",
-                        )),
-                    },
-                    TokenType::Star => match (&left_val, &right_val) {
-                        (Value::Number(l), Value::Number(r)) => {
-                            let multiplication_result = l * r;
-                            Ok(Value::Number(multiplication_result))
-                        }
-                        _ => Err(ReefError::reef_runtime_error(
-                            operator,
-                            "Binary evaluation error",
-                        )),
-                    },
-                    TokenType::Slash => match (&left_val, &right_val) {
-                        (Value::Number(l), Value::Number(r)) => {
-                            let division_result = l / r;
-                            Ok(Value::Number(division_result))
-                        }
-                        _ => Err(ReefError::reef_runtime_error(
-                            operator,
-                            "Binary evaluation error",
-                        )),
-                    },
-
-                    TokenType::EqualEqual => {
-                        Ok(Value::Boolean(self.is_equal(&left_val, &right_val)))
-                    }
-                    TokenType::BangEqual => {
-                        Ok(Value::Boolean(!self.is_equal(&left_val, &right_val)))
-                    }
-                    TokenType::GreaterEqual => match (&left_val, &right_val) {
-                        (Value::Number(l), Value::Number(r)) => Ok(Value::Boolean(l >= r)),
-                        _ => Err(ReefError::reef_runtime_error(
-                            operator,
-                            "Binary evaluation error",
-                        )),
-                    },
-                    TokenType::Greater => match (&left_val, &right_val) {
-                        (Value::Number(l), Value::Number(r)) => Ok(Value::Boolean(l > r)),
-                        _ => Err(ReefError::reef_runtime_error(
-                            operator,
-                            "Binary evaluation error",
-                        )),
-                    },
-                    TokenType::LessEqual => match (&left_val, &right_val) {
-                        (Value::Number(l), Value::Number(r)) => Ok(Value::Boolean(l <= r)),
-                        _ => Err(ReefError::reef_runtime_error(
-                            operator,
-                            "Binary evaluation error",
-                        )),
-                    },
-                    TokenType::Less => match (&left_val, &right_val) {
-                        (Value::Number(l), Value::Number(r)) => Ok(Value::Boolean(l < r)),
-                        _ => Err(ReefError::reef_runtime_error(
-                            operator,
-                            "Binary evaluation error",
-                        )),
-                    },
-                    _ => Err(ReefError::reef_runtime_error(
-                        operator,
-                        "Binary evaluation error",
-                    )),
-                }
-            }
+            } => Expr::evaluate_binary(left, operator, right),
             // ExprKind::Call {
             //     callee,
             //     token,
             //     arguments,
             // } => {}
             // ExprKind::Get { object, name } => {}
-            ExprKind::Grouping { expression } => self.evaluate(expression),
-            ExprKind::Literal { value } => Ok(match value {
-                Literal::String(s) => Value::String(s.clone()),
-                Literal::Number(n) => Value::Number(*n),
-                Literal::Boolean(b) => Value::Boolean(*b),
-                Literal::Nil => Value::Nil,
-            }),
+            ExprKind::Grouping { expression } => Expr::evaluate(expression),
+            ExprKind::Literal { value } => Expr::evaluate_literal(value),
             // ExprKind::Logical {
             //     left,
             //     operator,
@@ -266,25 +283,9 @@ impl Expr {
             // } => {}
             // ExprKind::Super { keyword, method } => {}
             // ExprKind::This { keyword } => {}
-            ExprKind::Unary { operator, right } => {
-                let right_val = self.evaluate(right)?;
-                match operator.token_type {
-                    TokenType::Minus => match right_val {
-                        Value::Number(right_val) => Ok(Value::Number(-right_val)),
-                        _ => Err(ReefError::reef_runtime_error(
-                            operator,
-                            "Operand must be a number",
-                        )),
-                    },
-                    TokenType::Bang => Ok(Value::Boolean(!right_val.is_truthy())),
-                    _ => Err(ReefError::reef_runtime_error(
-                        operator,
-                        "invalid unary operator",
-                    )),
-                }
-            }
+            ExprKind::Unary { operator, right } => Expr::evaluate_unary(operator, right),
             // ExprKind::Variable { name } => {}
-            _ => Ok(Value::Nil), // placeholder to keep rust happy while i fill out the others
+            _ => todo!(),
         }
     }
 }

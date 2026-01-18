@@ -1,5 +1,5 @@
 [package]
-name = "interpreter"
+name = "reef"
 version = "0.1.0"
 authors = ["peter"]
 edition = "2024"
