@@ -97,6 +97,7 @@ pub enum ExprKind {
     Variable {
         name: Token,
     },
+    None,
 }
 
 #[derive(Debug)]

@@ -1,9 +1,10 @@
-use crate::{error::ReefError, expr::ExprKind};
+use crate::{Token, error::ReefError, expr::ExprKind};
 
 #[derive(Debug, Clone)]
 pub enum StmtKind {
     Print { expr: ExprKind },
     Expression { expr: ExprKind },
+    Var { name: Token, expr: ExprKind },
     Error { e: ReefError },
 }
 pub struct Stmt {

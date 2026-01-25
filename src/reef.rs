@@ -1,8 +1,9 @@
-use crate::ast_printer::AstPrinter;
+use crate::ast_printer::{self, AstPrinter};
 use crate::error::ReefError;
 use crate::interpreter::Interpreter;
 use crate::parser::Parser;
 use crate::scanner::Scanner;
+use crate::stmt::StmtKind;
 use std::fs;
 use std::io::{self, Write};
 
@@ -43,11 +44,19 @@ impl Reef {
         let tokens = scanner.scan_tokens();
         let mut parser = Parser::new(tokens);
 
-        let interpreter = Interpreter::new();
+        let interpreter = Interpreter::default();
 
         scanner.print_info();
 
         let stmts = parser.parse()?;
+        for stmt in &stmts {
+            match stmt {
+                StmtKind::Print { expr } => println!("{}", AstPrinter::print(expr)),
+                StmtKind::Expression { expr } => println!("{}", AstPrinter::print(expr)),
+                StmtKind::Var { name: _, expr } => println!("{}", AstPrinter::print(expr)),
+                _ => {}
+            };
+        }
         interpreter.interpret(stmts)?;
         Ok(())
     }
@@ -57,7 +66,10 @@ impl Reef {
             String::new()
         });
         if !file_contents.is_empty() {
-            self.run(&file_contents);
+            match self.run(&file_contents) {
+                Ok(()) => {}
+                Err(e) => println!("failed to run reef file: {:?}", e),
+            };
         } else {
             println!("EOF  null");
         }
@@ -90,5 +102,10 @@ impl Reef {
             ReefError::ParseError { .. } => self.had_error = true,
             ReefError::RuntimeError { .. } => self.had_runtime_error = true,
         }
+    }
+}
+impl Default for Reef {
+    fn default() -> Self {
+        Reef::new()
     }
 }

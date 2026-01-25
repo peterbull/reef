@@ -25,6 +25,10 @@ impl Interpreter {
                 println!("{}", self.stringify(&value));
                 value
             }
+            StmtKind::Var { name: _, expr: _ } => {
+                println!("var exectution not implemented yet");
+                Value::Nil
+            }
             _ => todo!(),
         };
         Ok(())
@@ -35,5 +39,10 @@ impl Interpreter {
             self.execute(&stmt)?
         }
         Ok(())
+    }
+}
+impl Default for Interpreter {
+    fn default() -> Self {
+        Interpreter::new()
     }
 }

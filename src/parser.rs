@@ -99,7 +99,7 @@ impl Parser {
     fn declaration(&mut self) -> Result<StmtKind, ReefError> {
         let decl_result = {
             if self.match_type(&[TokenType::Var]) {
-                // todo: logic for this stmt type
+                return self.var_declaration();
             }
             if self.match_type(&[TokenType::Fun]) {
                 // todo: logic for this stmt type
@@ -113,7 +113,20 @@ impl Parser {
         decl_result
     }
 
-    fn var_declaration() {}
+    fn var_declaration(&mut self) -> Result<StmtKind, ReefError> {
+        let name = self
+            .consume(TokenType::Identifier, "expect variable name")?
+            .clone();
+        let mut initializer = ExprKind::None;
+        if self.match_type(&[TokenType::Equal]) {
+            initializer = self.expression()?;
+        }
+        self.consume(TokenType::Semicolon, "expected ';' after var declaration")?;
+        Ok(StmtKind::Var {
+            name,
+            expr: initializer,
+        })
+    }
 
     fn statement(&mut self) -> Result<StmtKind, ReefError> {
         let peek_result = self.peek();
@@ -273,6 +286,12 @@ impl Parser {
                 value: literal_value,
             });
         }
+
+        if self.match_type(&[TokenType::Identifier]) {
+            let name = self.previous().expect("should be tokens here").clone();
+            return Ok(ExprKind::Variable { name });
+        }
+
         if self.match_type(&[TokenType::LeftParen]) {
             let expr = self.expression()?;
 

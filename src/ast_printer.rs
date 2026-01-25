@@ -1,7 +1,4 @@
-use crate::{
-    Literal,
-    expr::{Expr, ExprKind},
-};
+use crate::{Literal, expr::ExprKind};
 
 pub struct AstPrinter;
 
