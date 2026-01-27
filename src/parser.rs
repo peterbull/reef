@@ -122,10 +122,7 @@ impl Parser {
             initializer = self.expression()?;
         }
         self.consume(TokenType::Semicolon, "expected ';' after var declaration")?;
-        Ok(StmtKind::Var {
-            name,
-            expr: initializer,
-        })
+        Ok(StmtKind::Var { name, initializer })
     }
 
     fn statement(&mut self) -> Result<StmtKind, ReefError> {

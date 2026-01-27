@@ -2,15 +2,18 @@ use std::collections::HashMap;
 
 use crate::{Token, error::ReefError, expr::ExprKind};
 
-struct Environment {
+pub struct Environment {
     values: HashMap<String, ExprKind>,
 }
 
 impl Environment {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Environment {
             values: HashMap::new(),
         }
+    }
+    pub fn define(&mut self, name: String, value: ExprKind) -> Option<ExprKind> {
+        self.values.insert(name, value)
     }
     pub fn get(&self, name: &Token) -> Result<&ExprKind, ReefError> {
         if let Some(name) = self.values.get(&name.lexeme) {
@@ -20,5 +23,10 @@ impl Environment {
             name,
             &format!("Undefined variable: {}.", name.lexeme),
         ))
+    }
+}
+impl Default for Environment {
+    fn default() -> Self {
+        Environment::new()
     }
 }

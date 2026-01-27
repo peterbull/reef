@@ -4,7 +4,7 @@ use crate::{Token, error::ReefError, expr::ExprKind};
 pub enum StmtKind {
     Print { expr: ExprKind },
     Expression { expr: ExprKind },
-    Var { name: Token, expr: ExprKind },
+    Var { name: Token, initializer: ExprKind },
     Error { e: ReefError },
 }
 pub struct Stmt {

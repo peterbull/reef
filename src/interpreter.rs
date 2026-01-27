@@ -1,13 +1,18 @@
 use crate::{
+    environment::{self, Environment},
     error::ReefError,
-    expr::{Expr, Value},
+    expr::{Expr, ExprKind, Value},
     stmt::StmtKind,
 };
 
-pub struct Interpreter {}
+pub struct Interpreter {
+    environment: Environment,
+}
 impl Interpreter {
     pub fn new() -> Self {
-        Interpreter {}
+        Interpreter {
+            environment: Environment::new(),
+        }
     }
     pub fn stringify(&self, value: &Value) -> String {
         match value {
@@ -17,7 +22,7 @@ impl Interpreter {
             Value::Nil => String::from("nil"),
         }
     }
-    pub fn execute(&self, stmt: &StmtKind) -> Result<(), ReefError> {
+    pub fn execute(&mut self, stmt: &StmtKind) -> Result<(), ReefError> {
         match stmt {
             StmtKind::Expression { expr } => Expr::evaluate(expr)?,
             StmtKind::Print { expr } => {
@@ -25,16 +30,23 @@ impl Interpreter {
                 println!("{}", self.stringify(&value));
                 value
             }
-            StmtKind::Var { name: _, expr: _ } => {
-                println!("var exectution not implemented yet");
-                Value::Nil
+            StmtKind::Var {
+                name: _,
+                initializer,
+            } => {
+                todo!()
+                // let mut value = Value::Nil;
+                // match initializer {
+                //     ExprKind::None => {}
+                //     _ => {}
+                // }
             }
             _ => todo!(),
         };
         Ok(())
     }
 
-    pub fn interpret(&self, stmts: Vec<StmtKind>) -> Result<(), ReefError> {
+    pub fn interpret(&mut self, stmts: Vec<StmtKind>) -> Result<(), ReefError> {
         for stmt in stmts {
             self.execute(&stmt)?
         }

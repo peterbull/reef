@@ -53,7 +53,10 @@ impl Reef {
             match stmt {
                 StmtKind::Print { expr } => println!("{}", AstPrinter::print(expr)),
                 StmtKind::Expression { expr } => println!("{}", AstPrinter::print(expr)),
-                StmtKind::Var { name: _, expr } => println!("{}", AstPrinter::print(expr)),
+                StmtKind::Var {
+                    name: _,
+                    initializer,
+                } => println!("{}", AstPrinter::print(initializer)),
                 _ => {}
             };
         }
