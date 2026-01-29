@@ -20,7 +20,8 @@ pub struct Reef {
   statement     -> epxr_stmt | print_stmt ;
   expr_stmt     -> expression ";"
   print_stmt    -> "print" expression ";"
-  expression    -> equality; // passthrough
+  expression    -> assignment;
+  assignment    -> IDENTIFIER "=" assignment | equality ;
   equality      -> comparison ( ( "!=" | "==") comparison )* ; // a == b == c ...
   comparison    -> term ( (">" | ">=" | "<" | "<=") term )*;
   term          -> factor ( ("-" | "+" ) factor)* ;

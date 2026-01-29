@@ -1,6 +1,5 @@
 #![allow(unused_variables, dead_code)]
 use std::env;
-use std::fs;
 
 use reef_interpreter::reef::Reef;
 

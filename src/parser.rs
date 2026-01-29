@@ -1,11 +1,6 @@
 #![allow(unused_variables, dead_code)]
 
-use crate::{
-    Literal, Token, TokenType,
-    error::ReefError,
-    expr::ExprKind,
-    stmt::{Stmt, StmtKind},
-};
+use crate::{Literal, Token, TokenType, error::ReefError, expr::ExprKind, stmt::StmtKind};
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -29,7 +24,7 @@ impl Parser {
         self.previous()
     }
 
-    fn previous(&self) -> Option<&Token> {
+    fn previous(&mut self) -> Option<&Token> {
         if self.current > 0 {
             Some(&self.tokens[self.current - 1])
         } else {
@@ -80,22 +75,6 @@ impl Parser {
         Ok(self.statements.clone())
     }
 
-    fn expression(&mut self) -> Result<ExprKind, ReefError> {
-        self.equality()
-    }
-
-    fn expression_statement(&mut self) -> Result<StmtKind, ReefError> {
-        let expr = self.expression()?;
-        self.consume(TokenType::Semicolon, "expected semicolon after expression")?;
-        Ok(StmtKind::Expression { expr })
-    }
-    fn print_statement(&mut self) -> Result<StmtKind, ReefError> {
-        self.advance();
-        let expr = self.expression()?;
-        self.consume(TokenType::Semicolon, "expected semicolon after expression")?;
-        Ok(StmtKind::Print { expr })
-    }
-
     fn declaration(&mut self) -> Result<StmtKind, ReefError> {
         let decl_result = {
             if self.match_type(&[TokenType::Var]) {
@@ -134,6 +113,51 @@ impl Parser {
             },
             None => Err(ReefError::reef_general_error("Error parsing expression")),
         }
+    }
+
+    fn expression_statement(&mut self) -> Result<StmtKind, ReefError> {
+        let expr = self.expression()?;
+        self.consume(TokenType::Semicolon, "expected semicolon after expression")?;
+        Ok(StmtKind::Expression { expr })
+    }
+
+    fn print_statement(&mut self) -> Result<StmtKind, ReefError> {
+        self.advance();
+        let expr = self.expression()?;
+        self.consume(TokenType::Semicolon, "expected semicolon after expression")?;
+        Ok(StmtKind::Print { expr })
+    }
+
+    fn expression(&mut self) -> Result<ExprKind, ReefError> {
+        self.assignment()
+    }
+
+    fn assignment(&mut self) -> Result<ExprKind, ReefError> {
+        let expr = self.equality()?;
+        if self.match_type(&[TokenType::Equal]) {
+            let equals = self
+                .previous()
+                .expect("should have a preceding token")
+                .clone();
+            let value = self.assignment()?;
+
+            match expr {
+                ExprKind::Variable { name } => {
+                    return Ok(ExprKind::Assign {
+                        name,
+                        value: Box::new(value),
+                    });
+                }
+                _ => {
+                    return Err(ReefError::reef_general_error(&format!(
+                        "invalid assignment target: {:?}",
+                        equals
+                    )));
+                }
+            }
+        }
+
+        Ok(expr)
     }
 
     fn equality(&mut self) -> Result<ExprKind, ReefError> {
