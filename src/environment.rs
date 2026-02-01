@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{Token, error::ReefError, expr::Value};
+use crate::{Token, environment, error::ReefError, expr::Value};
 
 #[derive(Debug, Clone)]
 pub struct Environment {
@@ -9,10 +9,13 @@ pub struct Environment {
 }
 
 impl Environment {
-    pub fn new() -> Self {
+    pub fn new(enclosing: Option<Environment>) -> Self {
         Environment {
+            enclosing: match enclosing {
+                Some(enc) => Some(Box::new(enc)),
+                None => None,
+            },
             values: HashMap::new(),
-            enclosing: None,
         }
     }
     pub fn update_values(&mut self, name: String, value: Value) -> Result<Value, ReefError> {
@@ -24,9 +27,9 @@ impl Environment {
         self.update_values(name, value)
     }
 
-    pub fn assign(&mut self, name: String, value: Value) -> Result<Value, ReefError> {
-        if self.values.contains_key(&name) {
-            return self.update_values(name, value);
+    pub fn assign(&mut self, name: &Token, value: Value) -> Result<Value, ReefError> {
+        if self.values.contains_key(&name.lexeme) {
+            return self.update_values(name.lexeme.to_string(), value);
         }
         if let Some(ref mut enc) = self.enclosing {
             return enc.assign(name, value);
@@ -48,10 +51,5 @@ impl Environment {
             "undefined variable: '{}'",
             name.lexeme
         )))
-    }
-}
-impl Default for Environment {
-    fn default() -> Self {
-        Environment::new()
     }
 }

@@ -45,7 +45,7 @@ pub struct Interpreter {
 impl Interpreter {
     pub fn new() -> Self {
         Interpreter {
-            environment: Environment::new(),
+            environment: Environment::new(None),
         }
     }
     pub fn stringify(&self, value: &Value) -> String {
@@ -176,7 +176,10 @@ impl Interpreter {
     }
     fn evaluate_assignment(&mut self, name: &Token, value: &ExprKind) -> Result<Value, ReefError> {
         let value = self.evaluate(value)?;
-        self.environment.assign(name.lexeme.to_string(), value)
+        self.environment.assign(name, value)
+    }
+    fn evaluate_variable(&self, name: &Token) -> Result<Value, ReefError> {
+        self.environment.get(name)
     }
 
     pub fn evaluate(&mut self, expr: &ExprKind) -> Result<Value, ReefError> {
@@ -208,22 +211,23 @@ impl Interpreter {
             // ExprKind::Super { keyword, method } => {}
             // ExprKind::This { keyword } => {}
             ExprKind::Unary { operator, right } => self.evaluate_unary(operator, right),
-            // ExprKind::Variable { name } => {}
+            ExprKind::Variable { name } => self.evaluate_variable(name),
             _ => todo!(),
         }
     }
 
-    fn execute_expression(&mut self, expr: &ExprKind) -> Result<Value, ReefError> {
-        self.evaluate(expr)
+    fn execute_expression(&mut self, expr: &ExprKind) -> Result<(), ReefError> {
+        self.evaluate(expr);
+        Ok(())
     }
 
-    fn execute_print(&mut self, expr: &ExprKind) -> Result<Value, ReefError> {
+    fn execute_print(&mut self, expr: &ExprKind) -> Result<(), ReefError> {
         let value = self.evaluate(expr)?;
         println!("{}", self.stringify(&value));
-        Ok(value)
+        Ok(())
     }
 
-    fn execute_var(&mut self, name: &Token, initializer: &ExprKind) -> Result<Value, ReefError> {
+    fn execute_var(&mut self, name: &Token, initializer: &ExprKind) -> Result<(), ReefError> {
         let mut value = Value::Nil;
         match initializer {
             ExprKind::None => {}
@@ -233,15 +237,24 @@ impl Interpreter {
         }
         self.environment
             .define(name.lexeme.clone(), value.clone())?;
-        Ok(value)
+        Ok(())
     }
+
     fn execute_block(
         &mut self,
         statements: &Vec<StmtKind>,
-        environment: &Environment,
-    ) -> Result<Value, ReefError> {
-        let previous = &self.environment;
-        todo!()
+        environment: Environment,
+    ) -> Result<(), ReefError> {
+        let previous = self.environment.clone();
+        self.environment = environment;
+        for stmt in statements {
+            if let Err(e) = self.execute(stmt) {
+                self.environment = previous;
+                return Err(e);
+            }
+        }
+        self.environment = previous;
+        Ok(())
     }
 
     pub fn execute(&mut self, stmt: &StmtKind) -> Result<(), ReefError> {
@@ -249,10 +262,9 @@ impl Interpreter {
             StmtKind::Expression { expr } => self.execute_expression(expr)?,
             StmtKind::Print { expr } => self.execute_print(expr)?,
             StmtKind::Var { name, initializer } => self.execute_var(name, initializer)?,
-            StmtKind::Block {
-                statements,
-                environment,
-            } => self.execute_block(statements, environment)?,
+            StmtKind::Block { statements } => {
+                self.execute_block(statements, Environment::new(Some(self.environment.clone())))?
+            }
             _ => todo!(),
         };
         Ok(())

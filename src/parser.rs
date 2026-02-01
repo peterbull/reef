@@ -1,6 +1,9 @@
 #![allow(unused_variables, dead_code)]
 
-use crate::{Literal, Token, TokenType, error::ReefError, expr::ExprKind, stmt::StmtKind};
+use crate::{
+    Literal, Token, TokenType, environment::Environment, error::ReefError, expr::ExprKind,
+    stmt::StmtKind,
+};
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -117,11 +120,16 @@ impl Parser {
     }
 
     fn block_statement(&mut self) -> Result<StmtKind, ReefError> {
+        self.advance();
         let mut statements: Vec<StmtKind> = Vec::new();
         while !self.match_type(&[TokenType::RightBrace]) && !self.is_at_end() {
-            statements.push(self.declaration()?)
+            let decl = self.declaration()?;
+            statements.push(decl)
         }
-        self.consume(TokenType::RightBrace, "expect '}' after block")?;
+        for stmt in &statements {
+            println!("$$$$$$$$$$$$$ stmts, {:?}", stmt);
+        }
+        // self.consume(TokenType::RightBrace, "expect '}' after block")?;
         Ok(StmtKind::Block { statements })
     }
 
