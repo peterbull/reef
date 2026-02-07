@@ -5,7 +5,7 @@ use crate::{Token, error::ReefError, expr::Value};
 #[derive(Debug, Clone)]
 pub struct Environment {
     values: HashMap<String, Value>,
-    enclosing: Option<Box<Environment>>,
+    pub enclosing: Option<Box<Environment>>,
 }
 
 impl Environment {
@@ -48,5 +48,10 @@ impl Environment {
             "undefined variable: '{}'",
             name.lexeme
         )))
+    }
+}
+impl Default for Environment {
+    fn default() -> Self {
+        Environment::new(None)
     }
 }

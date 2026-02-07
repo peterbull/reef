@@ -181,7 +181,6 @@ impl Interpreter {
     }
 
     fn evaluate_variable(&self, name: &Token) -> Result<Value, ReefError> {
-        dbg!(&self.environment);
         self.environment.get(name)
     }
 
@@ -272,16 +271,24 @@ impl Interpreter {
         statements: &Vec<StmtKind>,
         environment: Environment,
     ) -> Result<(), ReefError> {
-        let previous = self.environment.clone();
-        self.environment = environment;
-        for stmt in statements {
-            if let Err(e) = self.execute(stmt) {
-                self.environment = previous;
-                return Err(e);
+        let previous = std::mem::replace(&mut self.environment, environment);
+
+        let result = (|| {
+            for stmt in statements {
+                // propagating error instead
+                // of having a `finally` kind of clause
+                // to revert to previous env
+                // check here if there are recovery issues
+                self.execute(stmt)?;
             }
+            Ok(())
+        })();
+
+        if let Some(parent) = self.environment.enclosing.take() {
+            self.environment = *parent;
         }
-        self.environment = previous;
-        Ok(())
+
+        result
     }
 
     fn execute_if(
@@ -299,8 +306,6 @@ impl Interpreter {
     }
     fn execute_while(&mut self, condition: &ExprKind, body: &StmtKind) -> Result<(), ReefError> {
         while self.evaluate(condition)?.is_truthy() {
-            // dbg!(condition);
-            // dbg!(body);
             self.execute(body)?
         }
         Ok(())
@@ -311,7 +316,9 @@ impl Interpreter {
             StmtKind::Print { expr } => self.execute_print(expr)?,
             StmtKind::Var { name, initializer } => self.execute_var(name, initializer)?,
             StmtKind::Block { statements } => {
-                self.execute_block(statements, Environment::new(Some(self.environment.clone())))?
+                let parent = std::mem::take(&mut self.environment);
+                let new_env = Environment::new(Some(parent));
+                self.execute_block(statements, new_env)?
             }
             StmtKind::If {
                 condition,
