@@ -174,12 +174,39 @@ impl Interpreter {
             Literal::Nil => Value::Nil,
         })
     }
+
     fn evaluate_assignment(&mut self, name: &Token, value: &ExprKind) -> Result<Value, ReefError> {
         let value = self.evaluate(value)?;
         self.environment.assign(name, value)
     }
+
     fn evaluate_variable(&self, name: &Token) -> Result<Value, ReefError> {
+        dbg!(&self.environment);
         self.environment.get(name)
+    }
+
+    fn evaluate_logical(
+        &mut self,
+        left: &ExprKind,
+        operator: &Token,
+        right: &ExprKind,
+    ) -> Result<Value, ReefError> {
+        let left_val = self.evaluate(left)?;
+
+        match operator.token_type {
+            TokenType::Or => {
+                if left_val.is_truthy() {
+                    return Ok(left_val);
+                }
+            }
+            _ => {
+                if !left_val.is_truthy() {
+                    return Ok(left_val);
+                }
+            }
+        }
+
+        self.evaluate(right)
     }
 
     pub fn evaluate(&mut self, expr: &ExprKind) -> Result<Value, ReefError> {
@@ -198,11 +225,11 @@ impl Interpreter {
             // ExprKind::Get { object, name } => {}
             ExprKind::Grouping { expression } => self.evaluate(expression),
             ExprKind::Literal { value } => self.evaluate_literal(value),
-            // ExprKind::Logical {
-            //     left,
-            //     operator,
-            //     right,
-            // } => {}
+            ExprKind::Logical {
+                left,
+                operator,
+                right,
+            } => self.evaluate_logical(left, operator, right),
             // ExprKind::Set {
             //     object,
             //     name,
@@ -256,6 +283,7 @@ impl Interpreter {
         self.environment = previous;
         Ok(())
     }
+
     fn execute_if(
         &mut self,
         condition: &ExprKind,
@@ -266,6 +294,14 @@ impl Interpreter {
             self.execute(then_branch)?;
         } else if let Some(b) = else_branch {
             self.execute(b)?;
+        }
+        Ok(())
+    }
+    fn execute_while(&mut self, condition: &ExprKind, body: &StmtKind) -> Result<(), ReefError> {
+        while self.evaluate(condition)?.is_truthy() {
+            // dbg!(condition);
+            // dbg!(body);
+            self.execute(body)?
         }
         Ok(())
     }
@@ -282,6 +318,7 @@ impl Interpreter {
                 then_branch,
                 else_branch,
             } => self.execute_if(condition, then_branch, else_branch)?,
+            StmtKind::While { condition, body } => self.execute_while(condition, body)?,
             _ => todo!(),
         };
         Ok(())

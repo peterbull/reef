@@ -23,6 +23,10 @@ pub enum StmtKind {
     Error {
         e: ReefError,
     },
+    While {
+        condition: ExprKind,
+        body: Box<StmtKind>,
+    },
 }
 
 pub struct Stmt {

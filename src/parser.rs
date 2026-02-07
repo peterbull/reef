@@ -113,6 +113,7 @@ impl Parser {
             Some(token) => match token.token_type {
                 TokenType::If => self.if_statement(),
                 TokenType::Print => self.print_statement(),
+                TokenType::While => self.while_statement(),
                 TokenType::LeftBrace => self.block_statement(),
                 _ => self.expression_statement(),
             },
@@ -120,16 +121,34 @@ impl Parser {
         }
     }
 
-    fn if_statement(&mut self) -> Result<StmtKind, ReefError> {
+    fn while_statement(&mut self) -> Result<StmtKind, ReefError> {
         self.advance();
         self.consume(
             TokenType::LeftParen,
-            "expect '(' to begin if stmt expression",
+            "expect '(' to begin if while expression",
         )?;
         let condition = self.expression()?;
         self.consume(
             TokenType::RightParen,
-            "expect ')' to close if stmt expression",
+            "expect ')' to close if while expression",
+        )?;
+        let body = self.statement()?;
+        Ok(StmtKind::While {
+            condition,
+            body: Box::new(body),
+        })
+    }
+
+    fn if_statement(&mut self) -> Result<StmtKind, ReefError> {
+        self.advance();
+        self.consume(
+            TokenType::LeftParen,
+            "expect '(' to begin if while expression",
+        )?;
+        let condition = self.expression()?;
+        self.consume(
+            TokenType::RightParen,
+            "expect ')' to close if while expression",
         )?;
         let then_branch = Box::new(self.statement()?);
         let mut else_branch = None;
@@ -168,12 +187,46 @@ impl Parser {
         Ok(StmtKind::Print { expr })
     }
 
+    fn or_expression(&mut self) -> Result<ExprKind, ReefError> {
+        let mut expr = self.and_expression()?;
+        while self.match_type(&[TokenType::Or]) {
+            let operator = self
+                .previous()
+                .expect("should have a preceding token")
+                .clone();
+            let right = self.and_expression()?;
+            expr = ExprKind::Logical {
+                left: Box::new(expr),
+                operator,
+                right: Box::new(right),
+            }
+        }
+        Ok(expr)
+    }
+
+    fn and_expression(&mut self) -> Result<ExprKind, ReefError> {
+        let mut expr = self.equality()?;
+        while self.match_type(&[TokenType::And]) {
+            let operator = self
+                .previous()
+                .expect("should have a preceding token")
+                .clone();
+            let right = self.equality()?;
+            expr = ExprKind::Logical {
+                left: Box::new(expr),
+                operator,
+                right: Box::new(right),
+            }
+        }
+        Ok(expr)
+    }
+
     fn expression(&mut self) -> Result<ExprKind, ReefError> {
         self.assignment()
     }
 
     fn assignment(&mut self) -> Result<ExprKind, ReefError> {
-        let expr = self.equality()?;
+        let expr = self.or_expression()?;
         if self.match_type(&[TokenType::Equal]) {
             let equals = self
                 .previous()

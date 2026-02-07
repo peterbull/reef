@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{Token, environment, error::ReefError, expr::Value};
+use crate::{Token, error::ReefError, expr::Value};
 
 #[derive(Debug, Clone)]
 pub struct Environment {
@@ -11,10 +11,7 @@ pub struct Environment {
 impl Environment {
     pub fn new(enclosing: Option<Environment>) -> Self {
         Environment {
-            enclosing: match enclosing {
-                Some(enc) => Some(Box::new(enc)),
-                None => None,
-            },
+            enclosing: enclosing.map(Box::new),
             values: HashMap::new(),
         }
     }

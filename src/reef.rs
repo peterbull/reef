@@ -14,20 +14,25 @@ pub struct Reef {
 /*
   Extended Backus-Naur Form (ebnf)
 
-  program       -> statement* EOF ;
+  program       -> declaration* EOF ;
   declaration   -> var_decl | statement ;
   var_decl      -> "var" IDENTIFIER ("=" expression)? ";" ;
   statement     -> epxr_stmt
                 | if_stmt
                 | print_stmt
+                | while_stmt
                 | block ;
+  while_stmt    -> "while" "(" expression ")" statement ;
   if_stmt       -> "if" "(" expression ")" statement
                 ( "else" statement)? ;
   block         -> "{" declaration* "}"
   expr_stmt     -> expression ";"
   print_stmt    -> "print" expression ";"
   expression    -> assignment;
-  assignment    -> IDENTIFIER "=" assignment | equality ;
+  assignment    -> IDENTIFIER "=" assignment
+                | logic_or ;
+  logic_or      -> logic_and ( "or" logic_and )* ;
+  logic_and     -> equality ( "and" equality)* ;
   equality      -> comparison ( ( "!=" | "==") comparison )* ; // a == b == c ...
   comparison    -> term ( (">" | ">=" | "<" | "<=") term )*;
   term          -> factor ( ("-" | "+" ) factor)* ;
@@ -37,6 +42,7 @@ pub struct Reef {
 
 
 */
+
 impl Reef {
     pub fn new() -> Self {
         Reef {
