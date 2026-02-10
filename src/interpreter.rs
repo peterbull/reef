@@ -39,9 +39,11 @@ fn is_equal(a: &Value, b: &Value) -> bool {
         _ => false,
     }
 }
+
 pub struct Interpreter {
     environment: Environment,
 }
+
 impl Interpreter {
     pub fn new() -> Self {
         Interpreter {
@@ -54,6 +56,7 @@ impl Interpreter {
             Value::Boolean(n) => n.to_string(),
             Value::String(n) => n.to_string(),
             Value::Nil => String::from("nil"),
+            _ => todo!(),
         }
     }
 
@@ -216,11 +219,11 @@ impl Interpreter {
                 operator,
                 right,
             } => self.evaluate_binary(left, operator, right),
-            // ExprKind::Call {
-            //     callee,
-            //     token,
-            //     arguments,
-            // } => {}
+            ExprKind::Call {
+                callee,
+                token,
+                arguments,
+            } => self.evaluate_call_expr(callee, token, arguments),
             // ExprKind::Get { object, name } => {}
             ExprKind::Grouping { expression } => self.evaluate(expression),
             ExprKind::Literal { value } => self.evaluate_literal(value),
@@ -241,9 +244,28 @@ impl Interpreter {
             _ => todo!(),
         }
     }
-
+    fn evaluate_call_expr(
+        &mut self,
+        callee: &ExprKind,
+        token: &Token,
+        arguments: &Vec<ExprKind>,
+    ) -> Result<Value, ReefError> {
+        let callee_val = self.evaluate(callee)?;
+        let mut arguments_val: Vec<Value> = Vec::new();
+        for arg in arguments {
+            let expr = self.evaluate(arg)?;
+            arguments_val.push(expr);
+        }
+        match callee_val {
+            Value::Callable(callable) => callable.call(self, arguments_val),
+            _ => Err(ReefError::reef_runtime_error(
+                token,
+                "can only call funcs and classes",
+            )),
+        }
+    }
     fn execute_expression(&mut self, expr: &ExprKind) -> Result<(), ReefError> {
-        self.evaluate(expr);
+        self.evaluate(expr)?;
         Ok(())
     }
 

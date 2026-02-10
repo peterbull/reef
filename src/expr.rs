@@ -1,6 +1,12 @@
 #![allow(unused_variables, dead_code)]
 
-use crate::{Literal, Token, TokenType, error::ReefError};
+use std::{fmt, rc::Rc};
+
+use crate::{Literal, Token, TokenType, error::ReefError, interpreter::Interpreter};
+
+pub trait ReefCallable: fmt::Debug {
+    fn call(&self, interpreter: &Interpreter, arguments: Vec<Value>) -> Result<Value, ReefError>;
+}
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -8,7 +14,7 @@ pub enum Value {
     Number(f64),
     Boolean(bool),
     Nil,
-    // funcs etc to be added
+    Callable(Rc<dyn ReefCallable>),
 }
 
 impl Value {

@@ -383,12 +383,14 @@ impl Parser {
                 }
                 let expr = self.expression()?;
                 arguments.push(expr);
-                if self.match_type(&[TokenType::Comma]) {
+                if !self.match_type(&[TokenType::Comma]) {
                     break;
                 }
             }
         }
+
         let paren = self.consume(TokenType::RightParen, "Expect ')' after arguments")?;
+
         Ok(ExprKind::Call {
             callee: Box::new(callee),
             token: paren.clone(),
