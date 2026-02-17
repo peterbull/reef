@@ -34,6 +34,7 @@ impl FunctionDecl {
 
 #[derive(Debug, Clone)]
 pub struct NativeFunction {
+    pub name: String,
     pub arity: usize,
     pub func: InterpreterFn,
 }
@@ -47,15 +48,30 @@ pub struct ReefFunction {
 
 pub trait ReefCallable: fmt::Debug {
     fn arity(&self) -> usize;
-    fn call(&self, interpreter: &Interpreter, arguments: Vec<Value>) -> Result<Value, ReefError>;
+    fn call(
+        &self,
+        interpreter: &mut Interpreter,
+        arguments: Vec<Value>,
+    ) -> Result<Value, ReefError>;
+    fn name(&self) -> &str;
+    fn to_reef_string(&self) -> String {
+        format!("<fn {}>", self.name())
+    }
 }
 
 impl ReefCallable for NativeFunction {
     fn arity(&self) -> usize {
         self.arity
     }
-    fn call(&self, interpreter: &Interpreter, arguments: Vec<Value>) -> Result<Value, ReefError> {
+    fn call(
+        &self,
+        interpreter: &mut Interpreter,
+        arguments: Vec<Value>,
+    ) -> Result<Value, ReefError> {
         (self.func)(interpreter, arguments)
+    }
+    fn name(&self) -> &str {
+        &self.name
     }
 }
 
@@ -78,15 +94,30 @@ impl ReefCallable for ReefFunction {
     fn arity(&self) -> usize {
         self.arity
     }
-    fn call(&self, interpreter: &Interpreter, arguments: Vec<Value>) -> Result<Value, ReefError> {
-        let decl = self.declaration;
+    fn call(
+        &self,
+        interpreter: &mut Interpreter,
+        arguments: Vec<Value>,
+    ) -> Result<Value, ReefError> {
+        let decl = &self.declaration;
 
         let globals = Some(interpreter.globals.clone());
-        let environment = Environment::new(globals);
-        // for i in self.declaration.parameters.len() {
-        //     let param = decl.parameters.get(i);
-        //     environment.define()
-        // }
-        (self.func)(interpreter, arguments)
+        let mut environment = Environment::new(globals);
+        for i in 0..self.declaration.parameters.len() {
+            let lexeme = &decl
+                .parameters
+                .get(i)
+                .expect("expect an entry in decl params")
+                .lexeme;
+            let args = arguments
+                .get(i)
+                .expect("expect argument to exist in params");
+            environment.define(lexeme.to_string(), args.clone())?;
+        }
+        interpreter.execute_block(&decl.body, environment)?;
+        Ok(Value::Nil)
+    }
+    fn name(&self) -> &str {
+        &self.declaration.name.lexeme
     }
 }

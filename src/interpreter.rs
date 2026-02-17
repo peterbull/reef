@@ -56,6 +56,7 @@ impl Interpreter {
     pub fn new() -> Self {
         let mut globals = Environment::new(None);
         let clock = NativeFunction {
+            name: "reef_clock".to_string(),
             arity: 0,
             func: |_interpreter, _args| {
                 let time = SystemTime::now()
@@ -321,7 +322,7 @@ impl Interpreter {
         Ok(())
     }
 
-    fn execute_block(
+    pub fn execute_block(
         &mut self,
         statements: &Vec<StmtKind>,
         environment: Environment,
