@@ -14,7 +14,7 @@ pub struct FunctionDecl {
 }
 
 impl FunctionDecl {
-    fn from_statement(stmt: StmtKind) -> Result<Self, ReefError> {
+    pub fn from_statement(stmt: StmtKind) -> Result<Self, ReefError> {
         match &stmt {
             StmtKind::Function {
                 name,

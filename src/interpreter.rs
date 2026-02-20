@@ -3,7 +3,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use crate::func::{NativeFunction, ReefCallable};
+use crate::func::{FunctionDecl, NativeFunction, ReefCallable, ReefFunction};
 use crate::{
     Literal, Token, TokenType,
     environment::Environment,
@@ -276,6 +276,7 @@ impl Interpreter {
     ) -> Result<Value, ReefError> {
         let callee_val = self.evaluate(callee)?;
         let mut arguments_val: Vec<Value> = Vec::new();
+        dbg!(arguments);
         for arg in arguments {
             let expr = self.evaluate(arg)?;
             arguments_val.push(expr);
@@ -360,12 +361,14 @@ impl Interpreter {
         }
         Ok(())
     }
+
     fn execute_while(&mut self, condition: &ExprKind, body: &StmtKind) -> Result<(), ReefError> {
         while self.evaluate(condition)?.is_truthy() {
             self.execute(body)?
         }
         Ok(())
     }
+
     pub fn execute(&mut self, stmt: &StmtKind) -> Result<(), ReefError> {
         match stmt {
             StmtKind::Expression { expr } => self.execute_expression(expr)?,
@@ -387,7 +390,12 @@ impl Interpreter {
                 parameters,
                 body,
             } => {
-                dbg!(name, parameters, body);
+                let function =
+                    ReefFunction::new(stmt.clone(), parameters.len(), |_interpreter, _args| {
+                        Ok(Value::Nil)
+                    })?;
+                self.environment
+                    .define(name.lexeme.clone(), Value::Callable(Rc::new(function)))?;
             }
             _ => todo!(),
         };
