@@ -94,6 +94,7 @@ impl ReefCallable for ReefFunction {
     fn arity(&self) -> usize {
         self.arity
     }
+
     fn call(
         &self,
         interpreter: &mut Interpreter,
@@ -101,19 +102,15 @@ impl ReefCallable for ReefFunction {
     ) -> Result<Value, ReefError> {
         let decl = &self.declaration;
 
-        let globals = Some(interpreter.globals.clone());
-        let mut environment = Environment::new(globals);
-        for i in 0..self.declaration.parameters.len() {
-            let lexeme = &decl
-                .parameters
-                .get(i)
-                .expect("expect an entry in decl params")
-                .lexeme;
-            let args = arguments
-                .get(i)
-                .expect("expect argument to exist in params");
-            environment.define(lexeme.to_string(), args.clone())?;
+        let current = std::mem::take(&mut interpreter.environment);
+        let mut environment = Environment::new(Some(current));
+
+        for (i, _) in decl.parameters.iter().enumerate() {
+            let lexeme = &decl.parameters[i].lexeme;
+            let arg = arguments[i].clone();
+            environment.define(lexeme.to_string(), arg)?;
         }
+
         interpreter.execute_block(&decl.body, environment)?;
         Ok(Value::Nil)
     }

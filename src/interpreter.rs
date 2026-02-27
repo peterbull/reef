@@ -49,7 +49,7 @@ fn is_equal(a: &Value, b: &Value) -> bool {
 
 pub struct Interpreter {
     pub globals: Environment,
-    environment: Environment,
+    pub environment: Environment,
 }
 
 impl Interpreter {
@@ -331,18 +331,19 @@ impl Interpreter {
 
         let result = (|| {
             for stmt in statements {
-                // propagating error instead
-                // of having a `finally` kind of clause
-                // to revert to previous env
-                // check here if there are recovery issues
                 self.execute(stmt)?;
             }
             Ok(())
         })();
 
-        if let Some(parent) = self.environment.enclosing.take() {
-            self.environment = *parent;
-        }
+        let restored = self
+            .environment
+            .enclosing
+            .take()
+            .map(|e| *e)
+            .unwrap_or(previous);
+
+        self.environment = restored;
 
         result
     }
@@ -373,9 +374,10 @@ impl Interpreter {
             StmtKind::Expression { expr } => self.execute_expression(expr)?,
             StmtKind::Print { expr } => self.execute_print(expr)?,
             StmtKind::Var { name, initializer } => self.execute_var(name, initializer)?,
+
             StmtKind::Block { statements } => {
-                let parent = std::mem::take(&mut self.environment);
-                let new_env = Environment::new(Some(parent));
+                let current = std::mem::take(&mut self.environment);
+                let new_env = Environment::new(Some(current));
                 self.execute_block(statements, new_env)?
             }
             StmtKind::If {
