@@ -141,9 +141,11 @@ impl Scanner {
         //  alt
         // ('0'..='9').contains(&c)
     }
+
     fn is_alphanumeric(&self, c: &char) -> bool {
         self.is_digit(c) || self.is_alpha(c)
     }
+
     fn identifier(&mut self) {
         while self.is_alphanumeric(&self.peek()) {
             self.advance();

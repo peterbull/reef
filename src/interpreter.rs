@@ -276,7 +276,6 @@ impl Interpreter {
     ) -> Result<Value, ReefError> {
         let callee_val = self.evaluate(callee)?;
         let mut arguments_val: Vec<Value> = Vec::new();
-        dbg!(arguments);
         for arg in arguments {
             let expr = self.evaluate(arg)?;
             arguments_val.push(expr);

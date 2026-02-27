@@ -89,9 +89,6 @@ impl Parser {
             if self.match_type(&[TokenType::Var]) {
                 return self.var_declaration();
             }
-            if self.match_type(&[TokenType::Fun]) {
-                // todo: logic for this stmt type
-            }
             self.statement()
         };
         match &decl_result {
@@ -138,19 +135,24 @@ impl Parser {
                 }
             }
         }
-        self.consume(TokenType::RightParen, "Expect ')' after params")?;
+        let prev_token = self.consume(TokenType::RightParen, "Expect ')' after params")?;
+        // TODO: handle this better
+        let prev_token = prev_token.clone();
 
-        self.consume(
-            TokenType::LeftBrace,
-            &format!("expect '{{' before {} body", { kind }),
-        )?;
-
-        let body = self.block_statements()?;
-        Ok(StmtKind::Function {
-            name: name.clone(),
-            parameters,
-            body,
-        })
+        let brace_check = self.check(&TokenType::LeftBrace);
+        if !brace_check {
+            Err(ReefError::reef_error_at_line(
+                &prev_token.clone(),
+                &format!("expect '{{' before {} body", { kind }),
+            ))
+        } else {
+            let body = self.block_statements()?;
+            Ok(StmtKind::Function {
+                name: name.clone(),
+                parameters,
+                body,
+            })
+        }
     }
 
     fn statement(&mut self) -> Result<StmtKind, ReefError> {
@@ -277,6 +279,11 @@ impl Parser {
 
     fn print_statement(&mut self) -> Result<StmtKind, ReefError> {
         self.advance();
+
+        eprintln!(
+            "DEBUG: In print_statement, current token: {:?}",
+            self.peek()
+        );
         let expr = self.expression()?;
         self.consume(TokenType::Semicolon, "expected semicolon after expression")?;
         Ok(StmtKind::Print { expr })
