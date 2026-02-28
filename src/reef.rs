@@ -26,9 +26,10 @@ pub struct Reef {
                 | forStmt
                 | if_stmt
                 | print_stmt
+                | return_stmt
                 | while_stmt
                 | block ;
-
+  return_stmt   -> "return" expression? ";" ;
   for_stmt      -> "for" "(" ( var_decl | expr_stmt | ";" )
                  expression? ";"
                  expression? ")" statement ;
@@ -146,6 +147,7 @@ impl Reef {
         match error {
             ReefError::ParseError { .. } => self.had_error = true,
             ReefError::RuntimeError { .. } => self.had_runtime_error = true,
+            _ => {}
         }
     }
 }

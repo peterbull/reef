@@ -167,15 +167,17 @@ impl Parser {
                     let statements = self.block_statements()?;
                     Ok(StmtKind::Block { statements })
                 }
+                TokenType::Return => self.return_statement(),
                 _ => self.expression_statement(),
             },
             None => Err(ReefError::reef_general_error("Error parsing expression")),
         }
     }
+
     fn for_statement(&mut self) -> Result<StmtKind, ReefError> {
         self.advance();
         self.consume(TokenType::LeftParen, "expect '(' to begin for loop")?;
-        let mut initializer = None;
+        let initializer;
         if self.match_type(&[TokenType::Semicolon]) {
             initializer = None;
         } else if self.match_type(&[TokenType::Var]) {
@@ -280,13 +282,26 @@ impl Parser {
     fn print_statement(&mut self) -> Result<StmtKind, ReefError> {
         self.advance();
 
-        eprintln!(
-            "DEBUG: In print_statement, current token: {:?}",
-            self.peek()
-        );
         let expr = self.expression()?;
         self.consume(TokenType::Semicolon, "expected semicolon after expression")?;
         Ok(StmtKind::Print { expr })
+    }
+
+    fn return_statement(&mut self) -> Result<StmtKind, ReefError> {
+        self.advance();
+        let keyword = self
+            .previous()
+            .expect("should have a preceding token")
+            .clone();
+        let mut expr = ExprKind::None;
+        if !self.check(&TokenType::Semicolon) {
+            expr = self.expression()?;
+        }
+        self.consume(
+            TokenType::Semicolon,
+            "expected semicolon after Return expression",
+        )?;
+        Ok(StmtKind::Return { keyword, expr })
     }
 
     fn or_expression(&mut self) -> Result<ExprKind, ReefError> {

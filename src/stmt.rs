@@ -12,6 +12,10 @@ pub enum StmtKind {
         name: Token,
         initializer: ExprKind,
     },
+    Return {
+        keyword: Token,
+        expr: ExprKind,
+    },
     Block {
         statements: Vec<StmtKind>,
     },

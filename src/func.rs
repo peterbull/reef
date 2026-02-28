@@ -111,8 +111,13 @@ impl ReefCallable for ReefFunction {
             environment.define(lexeme.to_string(), arg)?;
         }
 
-        interpreter.execute_block(&decl.body, environment)?;
-        Ok(Value::Nil)
+        match interpreter.execute_block(&decl.body, environment) {
+            Ok(_) => return Ok(Value::Nil),
+            Err(e) => match e {
+                ReefError::Return(val) => return Ok(val),
+                _ => return Err(e),
+            },
+        };
     }
     fn name(&self) -> &str {
         &self.declaration.name.lexeme

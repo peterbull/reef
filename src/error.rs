@@ -1,9 +1,13 @@
-use crate::token::{Token, TokenType};
+use crate::{
+    Value,
+    token::{Token, TokenType},
+};
 
 #[derive(Debug, Clone)]
 pub enum ReefError {
     ParseError(String),
     RuntimeError(String),
+    Return(Value),
 }
 impl ReefError {
     pub fn reef_error(line: usize, message: &str) -> ReefError {
@@ -30,6 +34,9 @@ impl ReefError {
     pub fn reef_runtime_error(token: &Token, message: &str) -> ReefError {
         eprintln!("Error {:?}: {}", token, message);
         ReefError::RuntimeError(format!("Error {:?}: {}", token, message))
+    }
+    pub fn reef_return(value: Value) -> ReefError {
+        ReefError::Return(value)
     }
 }
 

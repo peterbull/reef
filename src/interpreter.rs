@@ -80,7 +80,7 @@ impl Interpreter {
             Value::Boolean(n) => n.to_string(),
             Value::String(n) => n.to_string(),
             Value::Nil => String::from("nil"),
-            _ => todo!(),
+            Value::Callable(n) => n.to_reef_string(),
         }
     }
 
@@ -265,6 +265,7 @@ impl Interpreter {
             // ExprKind::This { keyword } => {}
             ExprKind::Unary { operator, right } => self.evaluate_unary(operator, right),
             ExprKind::Variable { name } => self.evaluate_variable(name),
+            ExprKind::None => Ok(Value::Nil),
             _ => todo!(),
         }
     }
@@ -328,7 +329,7 @@ impl Interpreter {
         environment: Environment,
     ) -> Result<(), ReefError> {
         let previous = std::mem::replace(&mut self.environment, environment);
-
+        dbg!(&previous);
         let result = (|| {
             for stmt in statements {
                 self.execute(stmt)?;
@@ -361,6 +362,19 @@ impl Interpreter {
         }
         Ok(())
     }
+    fn execute_func(
+        &mut self,
+        stmt: &StmtKind,
+        name: &Token,
+        parameters: &[Token],
+    ) -> Result<(), ReefError> {
+        let function = ReefFunction::new(stmt.clone(), parameters.len(), |_interpreter, _args| {
+            Ok(Value::Nil)
+        })?;
+        self.environment
+            .define(name.lexeme.clone(), Value::Callable(Rc::new(function)))?;
+        Ok(())
+    }
 
     fn execute_while(&mut self, condition: &ExprKind, body: &StmtKind) -> Result<(), ReefError> {
         while self.evaluate(condition)?.is_truthy() {
@@ -389,14 +403,13 @@ impl Interpreter {
             StmtKind::Function {
                 name,
                 parameters,
-                body,
-            } => {
-                let function =
-                    ReefFunction::new(stmt.clone(), parameters.len(), |_interpreter, _args| {
-                        Ok(Value::Nil)
-                    })?;
-                self.environment
-                    .define(name.lexeme.clone(), Value::Callable(Rc::new(function)))?;
+                // TODO: see if we can get rid of managing func body for these
+                //        statement kinds
+                body: _body,
+            } => self.execute_func(stmt, name, parameters)?,
+            StmtKind::Return { keyword, expr } => {
+                let value = self.evaluate(&expr)?;
+                Err(ReefError::reef_return(value))?
             }
             _ => todo!(),
         };
