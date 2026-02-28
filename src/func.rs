@@ -1,8 +1,10 @@
-use crate::environment::Environment;
+use crate::environment::{EnvRef, Environment};
 use crate::expr::Value;
 use crate::stmt::StmtKind;
-use crate::{Literal, Token, TokenType, error::ReefError, interpreter::Interpreter};
-use std::{env, fmt};
+use crate::{Token, error::ReefError, interpreter::Interpreter};
+use std::cell::RefCell;
+use std::fmt;
+use std::rc::Rc;
 
 pub type InterpreterFn = fn(&Interpreter, Vec<Value>) -> Result<Value, ReefError>;
 
@@ -42,8 +44,7 @@ pub struct NativeFunction {
 #[derive(Debug, Clone)]
 pub struct ReefFunction {
     pub declaration: FunctionDecl,
-    pub arity: usize,
-    pub func: InterpreterFn,
+    pub closure: EnvRef,
 }
 
 pub trait ReefCallable: fmt::Debug {
@@ -76,23 +77,18 @@ impl ReefCallable for NativeFunction {
 }
 
 impl ReefFunction {
-    pub fn new(
-        declaration: StmtKind,
-        arity: usize,
-        func: InterpreterFn,
-    ) -> Result<Self, ReefError> {
+    pub fn new(declaration: StmtKind, closure: EnvRef) -> Result<Self, ReefError> {
         let declaration = FunctionDecl::from_statement(declaration)?;
         Ok(Self {
             declaration,
-            arity,
-            func,
+            closure,
         })
     }
 }
 
 impl ReefCallable for ReefFunction {
     fn arity(&self) -> usize {
-        self.arity
+        self.declaration.parameters.len()
     }
 
     fn call(
@@ -100,25 +96,23 @@ impl ReefCallable for ReefFunction {
         interpreter: &mut Interpreter,
         arguments: Vec<Value>,
     ) -> Result<Value, ReefError> {
-        let decl = &self.declaration;
+        let environment = Environment::new_ref(Some(Rc::clone(&self.closure)));
 
-        let current = std::mem::take(&mut interpreter.environment);
-        let mut environment = Environment::new(Some(current));
-
-        for (i, _) in decl.parameters.iter().enumerate() {
-            let lexeme = &decl.parameters[i].lexeme;
-            let arg = arguments[i].clone();
-            environment.define(lexeme.to_string(), arg)?;
+        for (i, param) in self.declaration.parameters.iter().enumerate() {
+            environment
+                .borrow_mut()
+                .define(param.lexeme.clone(), arguments[i].clone())?;
         }
 
-        match interpreter.execute_block(&decl.body, environment) {
-            Ok(_) => return Ok(Value::Nil),
+        match interpreter.execute_block(&self.declaration.body, environment) {
+            Ok(_) => Ok(Value::Nil),
             Err(e) => match e {
-                ReefError::Return(val) => return Ok(val),
-                _ => return Err(e),
+                ReefError::Return(val) => Ok(val),
+                _ => Err(e),
             },
-        };
+        }
     }
+
     fn name(&self) -> &str {
         &self.declaration.name.lexeme
     }

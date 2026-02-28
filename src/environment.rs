@@ -1,23 +1,28 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{Token, error::ReefError, expr::Value};
+
+pub type EnvRef = Rc<RefCell<Environment>>;
 
 #[derive(Debug, Clone)]
 pub struct Environment {
     values: HashMap<String, Value>,
-    pub enclosing: Option<Box<Environment>>,
+    pub enclosing: Option<EnvRef>,
 }
-
 impl Environment {
-    pub fn new(enclosing: Option<Environment>) -> Self {
+    pub fn new(enclosing: Option<EnvRef>) -> Self {
         Environment {
-            enclosing: enclosing.map(Box::new),
+            enclosing,
             values: HashMap::new(),
         }
     }
     pub fn update_values(&mut self, name: String, value: Value) -> Result<Value, ReefError> {
         self.values.insert(name, value.clone());
         Ok(value)
+    }
+
+    pub fn new_ref(enclosing: Option<EnvRef>) -> EnvRef {
+        Rc::new(RefCell::new(Environment::new(enclosing)))
     }
 
     pub fn define(&mut self, name: String, value: Value) -> Result<Value, ReefError> {
@@ -29,7 +34,7 @@ impl Environment {
             return self.update_values(name.lexeme.to_string(), value);
         }
         if let Some(ref mut enc) = self.enclosing {
-            return enc.assign(name, value);
+            return enc.borrow_mut().assign(name, value);
         }
         Err(ReefError::reef_general_error(&format!(
             "undefined variable: {:?}",
@@ -42,7 +47,7 @@ impl Environment {
             return Ok(val.clone());
         }
         if let Some(enc) = &self.enclosing {
-            return enc.get(name);
+            return enc.borrow_mut().get(name);
         }
         Err(ReefError::reef_general_error(&format!(
             "undefined variable: '{}'",
