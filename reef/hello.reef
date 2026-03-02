@@ -1,39 +1,39 @@
-print "========== testing nesting ===================";
-var a = "global a";
-var b = "global b";
-var c = "global c";
-{
-  var a = "outer a";
-  var b = "outer b";
-  {
-    var a = "inner a";
-    print a;
-    print b;
-    print c;
-  }
-  print a;
-  print b;
-  print c;
+var num = 0;
+fun fib(n) {
+  if (n <= 1) return n;
+  print num;
+  num = num + 1;
+  return fib(n - 2) + fib(n - 1);
 }
 
-print a;
-print b;
-print c;
-!true;
-12345566 + 1;
-2 * 4;
-!false;
-!!!!!!!!!!!nil == false;
-"my words " + "are here";
-4 > 100;
-5 <= 200;
-3 >= 3;
-4 <= 1;
-100 == "";
-300 != "stuff";
-// 500 < "";
-nil;
-100.2344;
-print "hi there everyone";
-var my_variable = 3 + 4;
-var another_var = 5 * 90;
+for (var i = 0; i < 10; i = i + 1) {
+ print fib(i);
+}
+
+fun makeCounter() {
+  var i = 0;
+  fun count() {
+    i = i + 1;
+    print i;
+  }
+
+  return count;
+}
+
+var counter = makeCounter();
+counter(); // "1".
+counter(); // "2".
+
+var outer2 = 1;
+fun makeSomething() {
+  outer2 = outer2 + 1;
+  print outer2;
+}
+makeSomething();
+makeSomething();
+makeSomething();
+makeSomething();
+makeSomething();
+makeSomething();
+makeSomething();
+

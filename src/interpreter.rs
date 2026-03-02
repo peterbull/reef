@@ -1,5 +1,4 @@
 use std::{
-    cell::RefCell,
     rc::Rc,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -359,6 +358,9 @@ impl Interpreter {
             self.execute(&stmt)?
         }
         Ok(())
+    }
+    pub fn resolve(&mut self, expr: ExprKind, depth: usize) {
+        todo!("add locals attr")
     }
 }
 
