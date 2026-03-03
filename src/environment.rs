@@ -29,9 +29,9 @@ impl Environment {
         self.update_values(name, value)
     }
 
-    pub fn assign(&mut self, name: &Token, value: Value) -> Result<Value, ReefError> {
-        if self.values.contains_key(&name.lexeme) {
-            return self.update_values(name.lexeme.to_string(), value);
+    pub fn assign(&mut self, name: &str, value: Value) -> Result<Value, ReefError> {
+        if self.values.contains_key(name) {
+            return self.update_values(name.to_string(), value);
         }
         if let Some(ref mut enc) = self.enclosing {
             return enc.borrow_mut().assign(name, value);
@@ -42,8 +42,8 @@ impl Environment {
         )))
     }
 
-    pub fn get(&self, name: &Token) -> Result<Value, ReefError> {
-        if let Some(val) = self.values.get(&name.lexeme) {
+    pub fn get(&self, name: &str) -> Result<Value, ReefError> {
+        if let Some(val) = self.values.get(name) {
             return Ok(val.clone());
         }
         if let Some(enc) = &self.enclosing {
@@ -51,10 +51,38 @@ impl Environment {
         }
         Err(ReefError::reef_general_error(&format!(
             "undefined variable: '{}'",
-            name.lexeme
+            name
         )))
     }
+    pub fn get_at(&self, distance: &usize, name: &str) -> Result<Value, ReefError> {
+        if *distance == 0 {
+            self.get(name)
+        } else {
+            self.enclosing
+                .as_ref()
+                .expect("expect encolsing env to exist")
+                .borrow()
+                .get_at(&(*distance - 1), name)
+        }
+    }
+    pub fn assign_at(
+        &mut self,
+        distance: &usize,
+        name: &str,
+        value: Value,
+    ) -> Result<Value, ReefError> {
+        if *distance == 0 {
+            self.assign(name, value)
+        } else {
+            self.enclosing
+                .as_ref()
+                .expect("expect enclosing env should exist")
+                .borrow_mut()
+                .assign_at(&(*distance - 1), name, value)
+        }
+    }
 }
+
 impl Default for Environment {
     fn default() -> Self {
         Environment::new(None)

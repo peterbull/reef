@@ -1,12 +1,7 @@
-#![allow(unused_variables, dead_code)]
+// #![allow(unused_variables, dead_code)]
 use std::collections::HashMap;
 
-use crate::{
-    ExprKind, Token,
-    error::ReefError,
-    interpreter::{self, Interpreter},
-    stmt::StmtKind,
-};
+use crate::{ExprKind, Token, error::ReefError, interpreter::Interpreter, stmt::StmtKind};
 
 pub struct Resolver {
     interpreter: Interpreter,
@@ -38,7 +33,7 @@ impl Resolver {
                 Ok(())
             }
             StmtKind::Var { name, initializer } => {
-                self.resolve_var_decl(&name, initializer).unwrap();
+                self.resolve_var_decl(&name, initializer)?;
                 Ok(())
             }
             StmtKind::Function {
@@ -55,6 +50,23 @@ impl Resolver {
                 self.resolve_expr(expr)?;
                 Ok(())
             }
+            StmtKind::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                self.resolve_expr(condition)?;
+                self.resolve_stmt(*then_branch)?;
+                if let Some(branch) = else_branch {
+                    self.resolve_stmt(*branch)?;
+                };
+                Ok(())
+            }
+            StmtKind::While { condition, body } => {
+                self.resolve_expr(condition)?;
+                self.resolve_stmt(*body)?;
+                Ok(())
+            }
             _ => todo!("finish statement resolutions"),
         }
     }
@@ -63,6 +75,38 @@ impl Resolver {
         match expression.clone() {
             ExprKind::Variable { name } => self.resolve_var_expr(&name, expression),
             ExprKind::Assign { name, value } => self.resolve_assignment(&name, *value, expression),
+            ExprKind::Binary {
+                left,
+                operator: _operator,
+                right,
+            } => {
+                self.resolve_expr(*left)?;
+                self.resolve_expr(*right)?;
+                Ok(())
+            }
+            ExprKind::Call {
+                callee,
+                token: _token,
+                arguments,
+            } => {
+                self.resolve_expr(*callee)?;
+                for arg in arguments {
+                    self.resolve_expr(arg)?;
+                }
+                Ok(())
+            }
+            ExprKind::Grouping { expression } => {
+                self.resolve_expr(*expression)?;
+                Ok(())
+            }
+            ExprKind::Literal { value: _value } => Ok(()),
+            ExprKind::Unary {
+                operator: _operator,
+                right,
+            } => {
+                self.resolve_expr(*right)?;
+                Ok(())
+            }
             _ => todo!("finish expression resolutions"),
         }
     }
@@ -78,8 +122,12 @@ impl Resolver {
     }
 
     fn resolve_var_expr(&mut self, name: &Token, expression: ExprKind) -> Result<(), ReefError> {
-        if !self.scopes.is_empty() && self.scopes.last().unwrap().get(&name.lexeme) == Some(&false)
-        {
+        let top_of_stack = self
+            .scopes
+            .last()
+            .expect("expect top of stack to exist")
+            .get(&name.lexeme);
+        if !self.scopes.is_empty() && top_of_stack == Some(&false) {
             return Err(ReefError::reef_general_error(
                 "Can't read local variable in its own initializer.",
             ));

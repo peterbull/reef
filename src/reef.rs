@@ -2,6 +2,7 @@ use crate::ast_printer::AstPrinter;
 use crate::error::ReefError;
 use crate::interpreter::Interpreter;
 use crate::parser::Parser;
+use crate::resolver::Resolver;
 use crate::scanner::Scanner;
 use crate::stmt::StmtKind;
 use std::fs;
@@ -92,17 +93,12 @@ impl Reef {
         scanner.print_info();
 
         let stmts = parser.parse()?;
-        for stmt in &stmts {
-            match stmt {
-                StmtKind::Print { expr } => println!("{}", AstPrinter::print(expr)),
-                StmtKind::Expression { expr } => println!("{}", AstPrinter::print(expr)),
-                StmtKind::Var {
-                    name: _,
-                    initializer,
-                } => println!("{}", AstPrinter::print(initializer)),
-                _ => {}
-            };
-        }
+        //
+        // TODO: see if we can move this to a refcell instead of cloning
+        let mut resolver = Resolver::new(interpreter.clone());
+
+        resolver.resolve(stmts);
+
         interpreter.interpret(stmts)?;
         Ok(())
     }

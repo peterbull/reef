@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     rc::Rc,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -24,9 +25,11 @@ fn is_equal(a: &Value, b: &Value) -> bool {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Interpreter {
     pub globals: EnvRef,
     pub environment: EnvRef,
+    pub locals: HashMap<*const ExprKind, usize>,
 }
 
 impl Interpreter {
@@ -46,11 +49,13 @@ impl Interpreter {
 
         globals
             .borrow_mut()
-            .define("clock".to_string(), Value::Callable(Rc::new(clock)));
+            .define("clock".to_string(), Value::Callable(Rc::new(clock)))
+            .expect("expect clock function to be definable");
 
         Interpreter {
             environment: Rc::clone(&globals),
             globals,
+            locals: HashMap::new(),
         }
     }
 
@@ -168,11 +173,18 @@ impl Interpreter {
 
     fn evaluate_assignment(&mut self, name: &Token, value: &ExprKind) -> Result<Value, ReefError> {
         let value = self.evaluate(value)?;
-        self.environment.borrow_mut().assign(name, value)
+        self.environment.borrow_mut().assign(&name.lexeme, value)
     }
 
     fn evaluate_variable(&self, name: &Token) -> Result<Value, ReefError> {
-        self.environment.borrow().get(name)
+        self.environment.borrow().get(&name.lexeme)
+    }
+    fn lookup_variable(&mut self, name: &Token, expr: &ExprKind) -> Result<Value, ReefError> {
+        let distance = self.locals.get(&(expr as *const ExprKind));
+        match distance {
+            Some(dist) => self.environment.borrow().get_at(dist, &name.lexeme),
+            None => self.globals.borrow().get(&name.lexeme),
+        }
     }
 
     fn evaluate_logical(
