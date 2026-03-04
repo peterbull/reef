@@ -14,7 +14,7 @@ pub enum StmtKind {
     },
     Return {
         keyword: Token,
-        expr: ExprKind,
+        value: ExprKind,
     },
     Block {
         statements: Vec<StmtKind>,

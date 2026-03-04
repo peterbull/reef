@@ -1,11 +1,14 @@
 // #![allow(unused_variables, dead_code)]
 use std::collections::HashMap;
 
-use crate::{ExprKind, Token, error::ReefError, interpreter::Interpreter, stmt::StmtKind};
+use crate::{
+    ExprKind, Token, error::ReefError, func::FunctionKind, interpreter::Interpreter, stmt::StmtKind,
+};
 
 pub struct Resolver {
-    interpreter: Interpreter,
+    pub interpreter: Interpreter,
     scopes: Vec<HashMap<String, bool>>,
+    current_function: FunctionKind,
 }
 
 impl Resolver {
@@ -14,17 +17,18 @@ impl Resolver {
         Resolver {
             interpreter,
             scopes,
+            current_function: FunctionKind::None,
         }
     }
 
-    pub fn resolve(&mut self, statements: Vec<StmtKind>) -> Result<(), ReefError> {
+    pub fn resolve(&mut self, statements: &Vec<StmtKind>) -> Result<(), ReefError> {
         for stmt in statements {
             self.resolve_stmt(stmt)?;
         }
         Ok(())
     }
 
-    fn resolve_stmt(&mut self, statement: StmtKind) -> Result<(), ReefError> {
+    fn resolve_stmt(&mut self, statement: &StmtKind) -> Result<(), ReefError> {
         match statement {
             StmtKind::Block { statements } => {
                 self.begin_scope();
@@ -33,7 +37,7 @@ impl Resolver {
                 Ok(())
             }
             StmtKind::Var { name, initializer } => {
-                self.resolve_var_decl(&name, initializer)?;
+                self.resolve_var_decl(name, initializer)?;
                 Ok(())
             }
             StmtKind::Function {
@@ -41,9 +45,9 @@ impl Resolver {
                 parameters,
                 body,
             } => {
-                self.declare(&name);
-                self.define(&name);
-                self.resolve_fn(parameters, body)?;
+                self.declare(name)?;
+                self.define(name);
+                self.resolve_fn(parameters, body, FunctionKind::Function)?;
                 Ok(())
             }
             StmtKind::Expression { expr } => {
@@ -56,32 +60,52 @@ impl Resolver {
                 else_branch,
             } => {
                 self.resolve_expr(condition)?;
-                self.resolve_stmt(*then_branch)?;
+                self.resolve_stmt(then_branch)?;
                 if let Some(branch) = else_branch {
-                    self.resolve_stmt(*branch)?;
+                    self.resolve_stmt(branch)?;
                 };
                 Ok(())
             }
             StmtKind::While { condition, body } => {
                 self.resolve_expr(condition)?;
-                self.resolve_stmt(*body)?;
+                self.resolve_stmt(body)?;
                 Ok(())
             }
+            StmtKind::Print { expr } => {
+                self.resolve_expr(expr)?;
+                Ok(())
+            }
+            StmtKind::Return { keyword: _, value } => self.resolve_return(value),
             _ => todo!("finish statement resolutions"),
         }
     }
 
-    fn resolve_expr(&mut self, expression: ExprKind) -> Result<(), ReefError> {
-        match expression.clone() {
-            ExprKind::Variable { name } => self.resolve_var_expr(&name, expression),
-            ExprKind::Assign { name, value } => self.resolve_assignment(&name, *value, expression),
+    fn resolve_return(&mut self, value: &ExprKind) -> Result<(), ReefError> {
+        match value {
+            ExprKind::None => Ok(()),
+            _ => match self.current_function {
+                FunctionKind::None => {
+                    Err(ReefError::reef_general_error("No top level return allowed"))
+                }
+                _ => {
+                    self.resolve_expr(value)?;
+                    Ok(())
+                }
+            },
+        }
+    }
+
+    fn resolve_expr(&mut self, expression: &ExprKind) -> Result<(), ReefError> {
+        match expression {
+            ExprKind::Variable { name } => self.resolve_var_expr(name, expression),
+            ExprKind::Assign { name, value } => self.resolve_assignment(name, value, expression),
             ExprKind::Binary {
                 left,
                 operator: _operator,
                 right,
             } => {
-                self.resolve_expr(*left)?;
-                self.resolve_expr(*right)?;
+                self.resolve_expr(left)?;
+                self.resolve_expr(right)?;
                 Ok(())
             }
             ExprKind::Call {
@@ -89,30 +113,39 @@ impl Resolver {
                 token: _token,
                 arguments,
             } => {
-                self.resolve_expr(*callee)?;
+                self.resolve_expr(callee)?;
                 for arg in arguments {
                     self.resolve_expr(arg)?;
                 }
                 Ok(())
             }
             ExprKind::Grouping { expression } => {
-                self.resolve_expr(*expression)?;
+                self.resolve_expr(expression)?;
                 Ok(())
             }
-            ExprKind::Literal { value: _value } => Ok(()),
+            ExprKind::Logical {
+                left,
+                operator: _,
+                right,
+            } => {
+                self.resolve_expr(left)?;
+                self.resolve_expr(right)?;
+                Ok(())
+            }
+            ExprKind::Literal { value: _ } => Ok(()),
             ExprKind::Unary {
                 operator: _operator,
                 right,
             } => {
-                self.resolve_expr(*right)?;
+                self.resolve_expr(right)?;
                 Ok(())
             }
             _ => todo!("finish expression resolutions"),
         }
     }
 
-    fn resolve_var_decl(&mut self, name: &Token, initializer: ExprKind) -> Result<(), ReefError> {
-        self.declare(name);
+    fn resolve_var_decl(&mut self, name: &Token, initializer: &ExprKind) -> Result<(), ReefError> {
+        self.declare(name)?;
         match initializer {
             ExprKind::None => {}
             _ => self.resolve_expr(initializer)?,
@@ -121,16 +154,19 @@ impl Resolver {
         Ok(())
     }
 
-    fn resolve_var_expr(&mut self, name: &Token, expression: ExprKind) -> Result<(), ReefError> {
-        let top_of_stack = self
-            .scopes
-            .last()
-            .expect("expect top of stack to exist")
-            .get(&name.lexeme);
-        if !self.scopes.is_empty() && top_of_stack == Some(&false) {
-            return Err(ReefError::reef_general_error(
-                "Can't read local variable in its own initializer.",
-            ));
+    fn resolve_var_expr(&mut self, name: &Token, expression: &ExprKind) -> Result<(), ReefError> {
+        if !self.scopes.is_empty() {
+            let top_of_stack = self
+                .scopes
+                .last()
+                .expect("expect top of stack to exist")
+                .get(&name.lexeme);
+
+            if top_of_stack == Some(&false) {
+                return Err(ReefError::reef_general_error(
+                    "Can't read local variable in its own initializer.",
+                ));
+            }
         }
         self.resolve_local(expression, name)?;
         Ok(())
@@ -139,30 +175,38 @@ impl Resolver {
     fn resolve_assignment(
         &mut self,
         name: &Token,
-        value: ExprKind,
-        expression: ExprKind,
+        value: &ExprKind,
+        expression: &ExprKind,
     ) -> Result<(), ReefError> {
         self.resolve_expr(value)?;
         self.resolve_local(expression, name)?;
         Ok(())
     }
 
-    fn resolve_fn(&mut self, parameters: Vec<Token>, body: Vec<StmtKind>) -> Result<(), ReefError> {
+    fn resolve_fn(
+        &mut self,
+        parameters: &Vec<Token>,
+        body: &Vec<StmtKind>,
+        fn_type: FunctionKind,
+    ) -> Result<(), ReefError> {
+        let enclosing_fn = self.current_function.clone();
+        self.current_function = fn_type;
         self.begin_scope();
         for param in parameters {
-            self.declare(&param);
-            self.define(&param);
+            self.declare(param)?;
+            self.define(param);
         }
         self.resolve(body)?;
         self.end_scope();
+        self.current_function = enclosing_fn;
         Ok(())
     }
 
-    fn resolve_local(&mut self, expr: ExprKind, name: &Token) -> Result<(), ReefError> {
+    fn resolve_local(&mut self, expr: &ExprKind, name: &Token) -> Result<(), ReefError> {
         for i in (0..self.scopes.len()).rev() {
             if self.scopes[i].contains_key(&name.lexeme) {
-                self.interpreter
-                    .resolve(expr.clone(), self.scopes.len() - 1 - i);
+                self.interpreter.resolve(expr, self.scopes.len() - 1 - i)?;
+                return Ok(());
             }
         }
         Ok(())
@@ -176,14 +220,20 @@ impl Resolver {
         self.scopes.pop();
     }
 
-    fn declare(&mut self, name: &Token) {
+    fn declare(&mut self, name: &Token) -> Result<(), ReefError> {
         if self.scopes.is_empty() {
-            return;
+            return Ok(());
         }
-        self.scopes
-            .last_mut()
-            .expect("expect scope to exist")
-            .insert(name.lexeme.to_string(), false);
+
+        let scope = self.scopes.last_mut().expect("expect scope to exist");
+        if scope.contains_key(&name.lexeme) {
+            return Err(ReefError::reef_error_at_line(
+                name,
+                "Already a variable with this name in this scope",
+            ));
+        }
+        scope.insert(name.lexeme.to_string(), false);
+        Ok(())
     }
 
     fn define(&mut self, name: &Token) {

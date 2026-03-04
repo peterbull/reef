@@ -356,9 +356,9 @@ impl Interpreter {
                 parameters: _,
                 body: _,
             } => self.execute_func(stmt, name)?,
-            StmtKind::Return { keyword: _, expr } => {
-                let value = self.evaluate(expr)?;
-                Err(ReefError::reef_return(value))?
+            StmtKind::Return { keyword: _, value } => {
+                let final_value = self.evaluate(value)?;
+                Err(ReefError::reef_return(final_value))?
             }
             _ => todo!(),
         };
@@ -371,8 +371,9 @@ impl Interpreter {
         }
         Ok(())
     }
-    pub fn resolve(&mut self, expr: ExprKind, depth: usize) {
-        todo!("add locals attr")
+    pub fn resolve(&mut self, expr: &ExprKind, depth: usize) -> Result<(), ReefError> {
+        self.locals.insert(expr as *const ExprKind, depth);
+        Ok(())
     }
 }
 

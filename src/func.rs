@@ -15,6 +15,12 @@ pub struct FunctionDecl {
     body: Vec<StmtKind>,
 }
 
+#[derive(Debug, Clone)]
+pub enum FunctionKind {
+    None,
+    Function,
+}
+
 impl FunctionDecl {
     pub fn from_statement(stmt: StmtKind) -> Result<Self, ReefError> {
         match &stmt {

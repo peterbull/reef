@@ -1,6 +1,6 @@
 use crate::ast_printer::AstPrinter;
 use crate::error::ReefError;
-use crate::interpreter::Interpreter;
+use crate::interpreter::{self, Interpreter};
 use crate::parser::Parser;
 use crate::resolver::Resolver;
 use crate::scanner::Scanner;
@@ -88,17 +88,17 @@ impl Reef {
         let tokens = scanner.scan_tokens();
         let mut parser = Parser::new(tokens);
 
-        let mut interpreter = Interpreter::default();
+        let interpreter = Interpreter::default();
 
         scanner.print_info();
 
         let stmts = parser.parse()?;
-        //
-        // TODO: see if we can move this to a refcell instead of cloning
-        let mut resolver = Resolver::new(interpreter.clone());
 
-        resolver.resolve(stmts);
+        let mut resolver = Resolver::new(interpreter);
 
+        resolver.resolve(&stmts)?;
+        let mut interpreter = resolver.interpreter;
+        dbg!(&interpreter.locals);
         interpreter.interpret(stmts)?;
         Ok(())
     }

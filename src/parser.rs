@@ -293,15 +293,15 @@ impl Parser {
             .previous()
             .expect("should have a preceding token")
             .clone();
-        let mut expr = ExprKind::None;
+        let mut value = ExprKind::None;
         if !self.check(&TokenType::Semicolon) {
-            expr = self.expression()?;
+            value = self.expression()?;
         }
         self.consume(
             TokenType::Semicolon,
             "expected semicolon after Return expression",
         )?;
-        Ok(StmtKind::Return { keyword, expr })
+        Ok(StmtKind::Return { keyword, value })
     }
 
     fn or_expression(&mut self) -> Result<ExprKind, ReefError> {
