@@ -17,9 +17,10 @@ pub struct Reef {
 
   program       -> declaration* EOF ;
 
-  declaration   -> fun_decl | var_decl | statement ;
+  declaration   -> class_decl | fun_decl | var_decl | statement ;
+  class_decl    -> "class" IDENTIFIER "{" function* "}" ;
   fun_decl      -> "fun" function ;
-  function      -> IDENTIFIER "(" parameters ")" block;
+  function      -> IDENTIFIER "(" parameters? ")" block;
   parameters    -> IDENTIFIER ("," IDENTIFIER)* ;
   var_decl      -> "var" IDENTIFIER ("=" expression)? ";" ;
 
@@ -95,11 +96,9 @@ impl Reef {
         let stmts = parser.parse()?;
 
         let mut resolver = Resolver::new(interpreter);
-
         resolver.resolve(&stmts)?;
         let mut interpreter = resolver.interpreter;
-        dbg!(&interpreter.locals);
-        interpreter.interpret(stmts)?;
+        interpreter.interpret(&stmts)?;
         Ok(())
     }
     pub fn run_file(&mut self, filename: &str) {
@@ -132,7 +131,10 @@ impl Reef {
             if input_text.trim() == "exit" {
                 break;
             }
-            self.run(&input_text);
+            match self.run(&input_text) {
+                Ok(res) => res,
+                Err(_) => (),
+            };
             self.had_runtime_error = false;
             self.had_error = false;
         }

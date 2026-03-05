@@ -9,7 +9,7 @@ use crate::{
     Literal, Token, TokenType,
     environment::{EnvRef, Environment},
     error::ReefError,
-    expr::{ExprKind, Value},
+    expr::{Expr, ExprKind, Value},
     stmt::StmtKind,
 };
 
@@ -71,9 +71,9 @@ impl Interpreter {
 
     fn evaluate_binary(
         &mut self,
-        left: &ExprKind,
+        left: &Expr,
         operator: &Token,
-        right: &ExprKind,
+        right: &Expr,
     ) -> Result<Value, ReefError> {
         let left_val = self.evaluate(left)?;
         let right_val = self.evaluate(right)?;
@@ -144,7 +144,7 @@ impl Interpreter {
         }
     }
 
-    fn evaluate_unary(&mut self, operator: &Token, right: &ExprKind) -> Result<Value, ReefError> {
+    fn evaluate_unary(&mut self, operator: &Token, right: &Expr) -> Result<Value, ReefError> {
         let right_val = self.evaluate(right)?;
         match operator.token_type {
             TokenType::Minus => match right_val {
@@ -171,16 +171,29 @@ impl Interpreter {
         })
     }
 
-    fn evaluate_assignment(&mut self, name: &Token, value: &ExprKind) -> Result<Value, ReefError> {
+    fn evaluate_assignment(
+        &mut self,
+        name: &Token,
+        value: &Expr,
+        expr: &Expr,
+    ) -> Result<Value, ReefError> {
         let value = self.evaluate(value)?;
-        self.environment.borrow_mut().assign(&name.lexeme, value)
+        let distance = self.locals.get(&Rc::as_ptr(expr));
+        match distance {
+            Some(dist) => self
+                .environment
+                .borrow_mut()
+                .assign_at(dist, &name.lexeme, value),
+            None => self.globals.borrow_mut().assign(&name.lexeme, value),
+        }
     }
 
-    fn evaluate_variable(&self, name: &Token) -> Result<Value, ReefError> {
-        self.environment.borrow().get(&name.lexeme)
+    fn evaluate_variable(&mut self, name: &Token, expr: &Expr) -> Result<Value, ReefError> {
+        self.lookup_variable(name, expr)
     }
-    fn lookup_variable(&mut self, name: &Token, expr: &ExprKind) -> Result<Value, ReefError> {
-        let distance = self.locals.get(&(expr as *const ExprKind));
+
+    fn lookup_variable(&mut self, name: &Token, expr: &Expr) -> Result<Value, ReefError> {
+        let distance = self.locals.get(&Rc::as_ptr(expr));
         match distance {
             Some(dist) => self.environment.borrow().get_at(dist, &name.lexeme),
             None => self.globals.borrow().get(&name.lexeme),
@@ -189,9 +202,9 @@ impl Interpreter {
 
     fn evaluate_logical(
         &mut self,
-        left: &ExprKind,
+        left: &Expr,
         operator: &Token,
-        right: &ExprKind,
+        right: &Expr,
     ) -> Result<Value, ReefError> {
         let left_val = self.evaluate(left)?;
         match operator.token_type {
@@ -209,9 +222,9 @@ impl Interpreter {
         self.evaluate(right)
     }
 
-    pub fn evaluate(&mut self, expr: &ExprKind) -> Result<Value, ReefError> {
-        match expr {
-            ExprKind::Assign { name, value } => self.evaluate_assignment(name, value),
+    pub fn evaluate(&mut self, expr: &Expr) -> Result<Value, ReefError> {
+        match expr.as_ref() {
+            ExprKind::Assign { name, value } => self.evaluate_assignment(name, value, expr),
             ExprKind::Binary {
                 left,
                 operator,
@@ -230,7 +243,7 @@ impl Interpreter {
                 right,
             } => self.evaluate_logical(left, operator, right),
             ExprKind::Unary { operator, right } => self.evaluate_unary(operator, right),
-            ExprKind::Variable { name } => self.evaluate_variable(name),
+            ExprKind::Variable { name } => self.evaluate_variable(name, expr),
             ExprKind::None => Ok(Value::Nil),
             _ => todo!(),
         }
@@ -238,9 +251,9 @@ impl Interpreter {
 
     fn evaluate_call_expr(
         &mut self,
-        callee: &ExprKind,
+        callee: &Expr,
         token: &Token,
-        arguments: &Vec<ExprKind>,
+        arguments: &Vec<Expr>,
     ) -> Result<Value, ReefError> {
         let callee_val = self.evaluate(callee)?;
         let mut arguments_val: Vec<Value> = Vec::new();
@@ -266,19 +279,19 @@ impl Interpreter {
         }
     }
 
-    fn execute_expression(&mut self, expr: &ExprKind) -> Result<(), ReefError> {
+    fn execute_expression(&mut self, expr: &Expr) -> Result<(), ReefError> {
         self.evaluate(expr)?;
         Ok(())
     }
 
-    fn execute_print(&mut self, expr: &ExprKind) -> Result<(), ReefError> {
+    fn execute_print(&mut self, expr: &Expr) -> Result<(), ReefError> {
         let value = self.evaluate(expr)?;
         println!("{}", self.stringify(&value));
         Ok(())
     }
 
-    fn execute_var(&mut self, name: &Token, initializer: &ExprKind) -> Result<(), ReefError> {
-        let value = match initializer {
+    fn execute_var(&mut self, name: &Token, initializer: &Expr) -> Result<(), ReefError> {
+        let value = match initializer.as_ref() {
             ExprKind::None => Value::Nil,
             _ => self.evaluate(initializer)?,
         };
@@ -295,7 +308,6 @@ impl Interpreter {
     ) -> Result<(), ReefError> {
         let previous = Rc::clone(&self.environment);
         self.environment = environment;
-
         let result = (|| {
             for stmt in statements {
                 self.execute(stmt)?;
@@ -309,7 +321,7 @@ impl Interpreter {
 
     fn execute_if(
         &mut self,
-        condition: &ExprKind,
+        condition: &Expr,
         then_branch: &StmtKind,
         else_branch: &Option<Box<StmtKind>>,
     ) -> Result<(), ReefError> {
@@ -321,7 +333,7 @@ impl Interpreter {
         Ok(())
     }
 
-    fn execute_func(&mut self, stmt: &StmtKind, name: &Token) -> Result<(), ReefError> {
+    fn execute_func(&mut self, stmt: StmtKind, name: &Token) -> Result<(), ReefError> {
         let function = ReefFunction::new(stmt.clone(), Rc::clone(&self.environment))?;
         self.environment
             .borrow_mut()
@@ -329,7 +341,7 @@ impl Interpreter {
         Ok(())
     }
 
-    fn execute_while(&mut self, condition: &ExprKind, body: &StmtKind) -> Result<(), ReefError> {
+    fn execute_while(&mut self, condition: &Expr, body: &StmtKind) -> Result<(), ReefError> {
         while self.evaluate(condition)?.is_truthy() {
             self.execute(body)?;
         }
@@ -355,7 +367,7 @@ impl Interpreter {
                 name,
                 parameters: _,
                 body: _,
-            } => self.execute_func(stmt, name)?,
+            } => self.execute_func(stmt.clone(), name)?,
             StmtKind::Return { keyword: _, value } => {
                 let final_value = self.evaluate(value)?;
                 Err(ReefError::reef_return(final_value))?
@@ -365,14 +377,15 @@ impl Interpreter {
         Ok(())
     }
 
-    pub fn interpret(&mut self, stmts: Vec<StmtKind>) -> Result<(), ReefError> {
+    pub fn interpret(&mut self, stmts: &[StmtKind]) -> Result<(), ReefError> {
         for stmt in stmts {
-            self.execute(&stmt)?
+            self.execute(stmt)?
         }
         Ok(())
     }
-    pub fn resolve(&mut self, expr: &ExprKind, depth: usize) -> Result<(), ReefError> {
-        self.locals.insert(expr as *const ExprKind, depth);
+
+    pub fn resolve(&mut self, expr: &Expr, depth: usize) -> Result<(), ReefError> {
+        self.locals.insert(Rc::as_ptr(expr), depth);
         Ok(())
     }
 }

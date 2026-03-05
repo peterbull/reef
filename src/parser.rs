@@ -1,12 +1,12 @@
 #![allow(unused_variables, dead_code)]
 
 use crate::{
-    Literal, Reef, Token, TokenType,
-    environment::Environment,
+    Literal, Token, TokenType,
     error::ReefError,
-    expr::ExprKind,
-    stmt::{Stmt, StmtKind},
+    expr::{Expr, ExprKind},
+    stmt::StmtKind,
 };
+use std::rc::Rc;
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -89,6 +89,9 @@ impl Parser {
             if self.match_type(&[TokenType::Var]) {
                 return self.var_declaration();
             }
+            if self.match_type(&[TokenType::Class]) {
+                return self.class_declaration();
+            }
             self.statement()
         };
         match &decl_result {
@@ -98,17 +101,31 @@ impl Parser {
         decl_result
     }
 
+    fn class_declaration(&mut self) -> Result<StmtKind, ReefError> {
+        let name = self
+            .consume(TokenType::Identifier, "expect class name")?
+            .clone();
+        self.consume(TokenType::LeftParen, "expect '{{' before class body")?;
+        let mut methods: Vec<StmtKind> = Vec::new();
+        if !&self.check(&TokenType::RightBrace) && !self.is_at_end() {
+            methods.push(self.function("method")?);
+        }
+        self.consume(TokenType::RightBrace, "Expect '}}' after class body")?;
+        Ok(StmtKind::Class { name, methods })
+    }
+
     fn var_declaration(&mut self) -> Result<StmtKind, ReefError> {
         let name = self
             .consume(TokenType::Identifier, "expect variable name")?
             .clone();
-        let mut initializer = ExprKind::None;
+        let mut initializer = Rc::new(ExprKind::None);
         if self.match_type(&[TokenType::Equal]) {
             initializer = self.expression()?;
         }
         self.consume(TokenType::Semicolon, "expected ';' after var declaration")?;
         Ok(StmtKind::Var { name, initializer })
     }
+
     fn function(&mut self, kind: &str) -> Result<StmtKind, ReefError> {
         let name = &self
             .consume(
@@ -118,7 +135,7 @@ impl Parser {
             .clone();
         self.consume(TokenType::LeftParen, "expect '(' before function params")?;
         let mut parameters: Vec<Token> = Vec::new();
-        if !&self.check(&TokenType::RightParen) {
+        if !&self.check(&TokenType::RightParen) && !self.is_at_end() {
             loop {
                 if parameters.len() >= 255 {
                     return Err(ReefError::reef_error_at_line(
@@ -136,7 +153,6 @@ impl Parser {
             }
         }
         let prev_token = self.consume(TokenType::RightParen, "Expect ')' after params")?;
-        // TODO: handle this better
         let prev_token = prev_token.clone();
 
         let brace_check = self.check(&TokenType::LeftBrace);
@@ -192,7 +208,7 @@ impl Parser {
 
         self.consume(TokenType::Semicolon, "expect ';' after loop condition")?;
 
-        let mut increment: Option<ExprKind> = None;
+        let mut increment: Option<Expr> = None;
         if !self.check(&TokenType::RightParen) {
             increment = Some(self.expression()?);
         }
@@ -206,9 +222,9 @@ impl Parser {
             }
         }
         if condition.is_none() {
-            condition = Some(ExprKind::Literal {
+            condition = Some(Rc::new(ExprKind::Literal {
                 value: Literal::Boolean(true),
-            })
+            }))
         }
         body = StmtKind::While {
             condition: condition.expect("should always be a condition here"),
@@ -268,8 +284,6 @@ impl Parser {
             let decl = self.declaration()?;
             statements.push(decl)
         }
-
-        // self.consume(TokenType::RightBrace, "expect '}' after block")?;
         Ok(statements)
     }
 
@@ -281,7 +295,6 @@ impl Parser {
 
     fn print_statement(&mut self) -> Result<StmtKind, ReefError> {
         self.advance();
-
         let expr = self.expression()?;
         self.consume(TokenType::Semicolon, "expected semicolon after expression")?;
         Ok(StmtKind::Print { expr })
@@ -293,7 +306,7 @@ impl Parser {
             .previous()
             .expect("should have a preceding token")
             .clone();
-        let mut value = ExprKind::None;
+        let mut value = Rc::new(ExprKind::None);
         if !self.check(&TokenType::Semicolon) {
             value = self.expression()?;
         }
@@ -304,7 +317,7 @@ impl Parser {
         Ok(StmtKind::Return { keyword, value })
     }
 
-    fn or_expression(&mut self) -> Result<ExprKind, ReefError> {
+    fn or_expression(&mut self) -> Result<Expr, ReefError> {
         let mut expr = self.and_expression()?;
         while self.match_type(&[TokenType::Or]) {
             let operator = self
@@ -312,16 +325,16 @@ impl Parser {
                 .expect("should have a preceding token")
                 .clone();
             let right = self.and_expression()?;
-            expr = ExprKind::Logical {
-                left: Box::new(expr),
+            expr = Rc::new(ExprKind::Logical {
+                left: expr,
                 operator,
-                right: Box::new(right),
-            }
+                right,
+            })
         }
         Ok(expr)
     }
 
-    fn and_expression(&mut self) -> Result<ExprKind, ReefError> {
+    fn and_expression(&mut self) -> Result<Expr, ReefError> {
         let mut expr = self.equality()?;
         while self.match_type(&[TokenType::And]) {
             let operator = self
@@ -329,20 +342,20 @@ impl Parser {
                 .expect("should have a preceding token")
                 .clone();
             let right = self.equality()?;
-            expr = ExprKind::Logical {
-                left: Box::new(expr),
+            expr = Rc::new(ExprKind::Logical {
+                left: expr,
                 operator,
-                right: Box::new(right),
-            }
+                right,
+            })
         }
         Ok(expr)
     }
 
-    fn expression(&mut self) -> Result<ExprKind, ReefError> {
+    fn expression(&mut self) -> Result<Expr, ReefError> {
         self.assignment()
     }
 
-    fn assignment(&mut self) -> Result<ExprKind, ReefError> {
+    fn assignment(&mut self) -> Result<Expr, ReefError> {
         let expr = self.or_expression()?;
         if self.match_type(&[TokenType::Equal]) {
             let equals = self
@@ -351,12 +364,12 @@ impl Parser {
                 .clone();
             let value = self.assignment()?;
 
-            match expr {
+            match expr.as_ref() {
                 ExprKind::Variable { name } => {
-                    return Ok(ExprKind::Assign {
-                        name,
-                        value: Box::new(value),
-                    });
+                    return Ok(Rc::new(ExprKind::Assign {
+                        name: name.clone(),
+                        value,
+                    }));
                 }
                 _ => {
                     return Err(ReefError::reef_general_error(&format!(
@@ -370,21 +383,21 @@ impl Parser {
         Ok(expr)
     }
 
-    fn equality(&mut self) -> Result<ExprKind, ReefError> {
+    fn equality(&mut self) -> Result<Expr, ReefError> {
         let mut expr = self.comparison()?;
         while self.match_type(&[TokenType::BangEqual, TokenType::EqualEqual]) {
             let operator = self.previous().expect("").clone();
             let right = self.comparison()?;
-            expr = ExprKind::Binary {
-                left: Box::new(expr),
+            expr = Rc::new(ExprKind::Binary {
+                left: expr,
                 operator,
-                right: Box::new(right),
-            }
+                right,
+            })
         }
         Ok(expr)
     }
 
-    fn comparison(&mut self) -> Result<ExprKind, ReefError> {
+    fn comparison(&mut self) -> Result<Expr, ReefError> {
         let mut expr = self.term()?;
         while self.match_type(&[
             TokenType::Less,
@@ -397,15 +410,16 @@ impl Parser {
                 .expect("token should exist after match")
                 .clone();
             let right = self.term()?;
-            expr = ExprKind::Binary {
-                left: Box::new(expr),
+            expr = Rc::new(ExprKind::Binary {
+                left: expr,
                 operator,
-                right: Box::new(right),
-            }
+                right,
+            })
         }
         Ok(expr)
     }
-    fn term(&mut self) -> Result<ExprKind, ReefError> {
+
+    fn term(&mut self) -> Result<Expr, ReefError> {
         let mut expr = self.factor()?;
         while self.match_type(&[TokenType::Plus, TokenType::Minus]) {
             let operator = self
@@ -413,16 +427,16 @@ impl Parser {
                 .expect("token should exist after match")
                 .clone();
             let right = self.factor()?;
-            expr = ExprKind::Binary {
-                left: Box::new(expr),
+            expr = Rc::new(ExprKind::Binary {
+                left: expr,
                 operator,
-                right: Box::new(right),
-            }
+                right,
+            })
         }
         Ok(expr)
     }
 
-    fn factor(&mut self) -> Result<ExprKind, ReefError> {
+    fn factor(&mut self) -> Result<Expr, ReefError> {
         let mut expr = self.unary()?;
         while self.match_type(&[TokenType::Slash, TokenType::Star]) {
             let operator = self
@@ -430,17 +444,17 @@ impl Parser {
                 .expect("token should exist after match")
                 .clone();
             let right = self.factor()?;
-            expr = ExprKind::Binary {
-                left: Box::new(expr),
+            expr = Rc::new(ExprKind::Binary {
+                left: expr,
                 operator,
-                right: Box::new(right),
-            }
+                right,
+            })
         }
         Ok(expr)
     }
 
-    fn finish_call(&mut self, callee: ExprKind) -> Result<ExprKind, ReefError> {
-        let mut arguments: Vec<ExprKind> = Vec::new();
+    fn finish_call(&mut self, callee: Expr) -> Result<Expr, ReefError> {
+        let mut arguments: Vec<Expr> = Vec::new();
         if !self.check(&TokenType::RightParen) {
             loop {
                 if arguments.len() >= 255 {
@@ -458,14 +472,14 @@ impl Parser {
         }
         let paren = self.consume(TokenType::RightParen, "Expect ')' after arguments")?;
 
-        Ok(ExprKind::Call {
-            callee: Box::new(callee),
+        Ok(Rc::new(ExprKind::Call {
+            callee,
             token: paren.clone(),
             arguments,
-        })
+        }))
     }
 
-    fn call(&mut self) -> Result<ExprKind, ReefError> {
+    fn call(&mut self) -> Result<Expr, ReefError> {
         let mut expr = self.primary()?;
         loop {
             if self.match_type(&[TokenType::LeftParen]) {
@@ -477,17 +491,14 @@ impl Parser {
         Ok(expr)
     }
 
-    fn unary(&mut self) -> Result<ExprKind, ReefError> {
+    fn unary(&mut self) -> Result<Expr, ReefError> {
         if self.match_type(&[TokenType::Bang, TokenType::Minus]) {
             let operator = self
                 .previous()
                 .expect("token should exist after match")
                 .clone();
             let right = self.unary()?;
-            return Ok(ExprKind::Unary {
-                operator,
-                right: Box::new(right),
-            });
+            return Ok(Rc::new(ExprKind::Unary { operator, right }));
         }
         self.call()
     }
@@ -502,6 +513,7 @@ impl Parser {
             ))
         }
     }
+
     fn synchronize(&mut self) {
         self.advance();
         while !self.is_at_end() {
@@ -531,46 +543,42 @@ impl Parser {
         }
     }
 
-    fn primary(&mut self) -> Result<ExprKind, ReefError> {
+    fn primary(&mut self) -> Result<Expr, ReefError> {
         if self.match_type(&[TokenType::False]) {
-            return Ok(ExprKind::Literal {
+            return Ok(Rc::new(ExprKind::Literal {
                 value: Literal::Boolean(false),
-            });
+            }));
         }
         if self.match_type(&[TokenType::True]) {
-            return Ok(ExprKind::Literal {
+            return Ok(Rc::new(ExprKind::Literal {
                 value: Literal::Boolean(true),
-            });
+            }));
         }
         if self.match_type(&[TokenType::Nil]) {
-            return Ok(ExprKind::Literal {
+            return Ok(Rc::new(ExprKind::Literal {
                 value: Literal::Nil,
-            });
+            }));
         }
         if self.match_type(&[TokenType::Number, TokenType::String]) {
             let token = self.previous().expect("should be tokens here").clone();
             let literal_value = token.literal.expect("should be literal here");
-
-            return Ok(ExprKind::Literal {
+            return Ok(Rc::new(ExprKind::Literal {
                 value: literal_value,
-            });
+            }));
         }
 
         if self.match_type(&[TokenType::Identifier]) {
             let name = self.previous().expect("should be tokens here").clone();
-            return Ok(ExprKind::Variable { name });
+            return Ok(Rc::new(ExprKind::Variable { name }));
         }
 
         if self.match_type(&[TokenType::LeftParen]) {
             let expr = self.expression()?;
-
             self.consume(
                 TokenType::RightParen,
                 "there should be a ')' following a '('",
             )?;
-            return Ok(ExprKind::Grouping {
-                expression: Box::new(expr),
-            });
+            return Ok(Rc::new(ExprKind::Grouping { expression: expr }));
         }
 
         Err(ReefError::reef_error_at_line(

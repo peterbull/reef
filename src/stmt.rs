@@ -1,26 +1,26 @@
-use crate::{Token, environment::Environment, error::ReefError, expr::ExprKind};
+use crate::{Token, environment::Environment, error::ReefError, expr::Expr};
 
 #[derive(Debug, Clone)]
 pub enum StmtKind {
     Print {
-        expr: ExprKind,
+        expr: Expr,
     },
     Expression {
-        expr: ExprKind,
+        expr: Expr,
     },
     Var {
         name: Token,
-        initializer: ExprKind,
+        initializer: Expr,
     },
     Return {
         keyword: Token,
-        value: ExprKind,
+        value: Expr,
     },
     Block {
         statements: Vec<StmtKind>,
     },
     If {
-        condition: ExprKind,
+        condition: Expr,
         then_branch: Box<StmtKind>,
         else_branch: Option<Box<StmtKind>>,
     },
@@ -28,13 +28,17 @@ pub enum StmtKind {
         e: ReefError,
     },
     While {
-        condition: ExprKind,
+        condition: Expr,
         body: Box<StmtKind>,
     },
     Function {
         name: Token,
         parameters: Vec<Token>,
         body: Vec<StmtKind>,
+    },
+    Class {
+        name: Token,
+        methods: Vec<StmtKind>,
     },
 }
 

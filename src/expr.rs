@@ -51,41 +51,43 @@ impl Value {
     }
 }
 
+pub type Expr = Rc<ExprKind>;
+
 #[derive(Debug, Clone)]
 pub enum ExprKind {
     Assign {
         name: Token,
-        value: Box<ExprKind>,
+        value: Expr,
     },
     Binary {
-        left: Box<ExprKind>,
+        left: Expr,
         operator: Token,
-        right: Box<ExprKind>,
+        right: Expr,
     },
     Call {
-        callee: Box<ExprKind>,
+        callee: Expr,
         token: Token,
-        arguments: Vec<ExprKind>,
+        arguments: Vec<Expr>,
     },
     Get {
-        object: Box<ExprKind>,
+        object: Expr,
         name: Token,
     },
     Grouping {
-        expression: Box<ExprKind>,
+        expression: Expr,
     },
     Literal {
         value: Literal,
     },
     Logical {
-        left: Box<ExprKind>,
+        left: Expr,
         operator: Token,
-        right: Box<ExprKind>,
+        right: Expr,
     },
     Set {
-        object: Box<ExprKind>,
+        object: Expr,
         name: Token,
-        value: Box<ExprKind>,
+        value: Expr,
     },
     Super {
         keyword: Token,
@@ -96,7 +98,7 @@ pub enum ExprKind {
     },
     Unary {
         operator: Token,
-        right: Box<ExprKind>,
+        right: Expr,
     },
     Variable {
         name: Token,
