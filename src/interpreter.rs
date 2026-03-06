@@ -4,13 +4,17 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use crate::func::{NativeFunction, ReefCallable, ReefFunction};
 use crate::{
     Literal, Token, TokenType,
+    class::{ReefClass, ReefClassAttrs},
     environment::{EnvRef, Environment},
     error::ReefError,
     expr::{Expr, ExprKind, Value},
     stmt::StmtKind,
+};
+use crate::{
+    class::ReefInstance,
+    func::{NativeFunction, ReefCallable, ReefFunction},
 };
 
 fn is_equal(a: &Value, b: &Value) -> bool {
@@ -66,6 +70,7 @@ impl Interpreter {
             Value::String(n) => n.to_string(),
             Value::Nil => String::from("nil"),
             Value::Callable(n) => n.to_reef_string(),
+            Value::Instance(n) => n.to_class_string(),
         }
     }
 
@@ -245,6 +250,11 @@ impl Interpreter {
             ExprKind::Unary { operator, right } => self.evaluate_unary(operator, right),
             ExprKind::Variable { name } => self.evaluate_variable(name, expr),
             ExprKind::None => Ok(Value::Nil),
+            // ExprKind::Get { object, name } => {
+            //     match self.evaluate(expr)? {
+            //         Value::Instance(obj) => obj,
+            //     };
+            // }
             _ => todo!(),
         }
     }
@@ -371,6 +381,16 @@ impl Interpreter {
             StmtKind::Return { keyword: _, value } => {
                 let final_value = self.evaluate(value)?;
                 Err(ReefError::reef_return(final_value))?
+            }
+            StmtKind::Class { name, methods } => {
+                self.environment
+                    .borrow_mut()
+                    .define(name.lexeme.to_string(), Value::Nil)?;
+                let class = ReefClass::new(name.lexeme.clone());
+                let class_val = Value::Callable(Rc::new(class) as Rc<dyn ReefCallable>);
+                self.environment
+                    .borrow_mut()
+                    .assign(&name.lexeme, class_val)?;
             }
             _ => todo!(),
         };

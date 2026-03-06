@@ -105,12 +105,12 @@ impl Parser {
         let name = self
             .consume(TokenType::Identifier, "expect class name")?
             .clone();
-        self.consume(TokenType::LeftParen, "expect '{{' before class body")?;
+        self.consume(TokenType::LeftBrace, "expect '{' before class body")?;
         let mut methods: Vec<StmtKind> = Vec::new();
         if !&self.check(&TokenType::RightBrace) && !self.is_at_end() {
             methods.push(self.function("method")?);
         }
-        self.consume(TokenType::RightBrace, "Expect '}}' after class body")?;
+        self.consume(TokenType::RightBrace, "Expect '}' after class body")?;
         Ok(StmtKind::Class { name, methods })
     }
 
@@ -371,6 +371,13 @@ impl Parser {
                         value,
                     }));
                 }
+                ExprKind::Get { object, name } => {
+                    return Ok(Rc::new(ExprKind::Set {
+                        object: Rc::clone(object),
+                        name: name.clone(),
+                        value,
+                    }));
+                }
                 _ => {
                     return Err(ReefError::reef_general_error(&format!(
                         "invalid assignment target: {:?}",
@@ -484,6 +491,12 @@ impl Parser {
         loop {
             if self.match_type(&[TokenType::LeftParen]) {
                 expr = self.finish_call(expr)?;
+            } else if self.match_type(&[TokenType::Dot]) {
+                let name = self.consume(TokenType::Identifier, "Expect property name after '.'")?;
+                expr = Rc::new(ExprKind::Get {
+                    object: expr,
+                    name: name.clone(),
+                });
             } else {
                 break;
             }

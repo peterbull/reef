@@ -1,9 +1,10 @@
 #![allow(unused_variables, dead_code)]
 
+use crate::class::ReefInstance;
 use crate::{
     Literal, Token, TokenType, error::ReefError, func::ReefCallable, interpreter::Interpreter,
 };
-use std::{fmt, rc::Rc};
+use std::rc::Rc;
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -12,6 +13,7 @@ pub enum Value {
     Boolean(bool),
     Nil,
     Callable(Rc<dyn ReefCallable>),
+    Instance(Rc<ReefInstance>),
 }
 
 impl Value {

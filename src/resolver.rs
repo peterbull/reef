@@ -151,6 +151,15 @@ impl Resolver {
                 Ok(())
             }
             ExprKind::None => Ok(()),
+            ExprKind::Get { object, .. } => {
+                self.resolve_expr(object)?;
+                Ok(())
+            }
+            ExprKind::Set { object, value, .. } => {
+                self.resolve_expr(value)?;
+                self.resolve_expr(object)?;
+                Ok(())
+            }
             _ => todo!("finish expression resolutions"),
         }
     }
