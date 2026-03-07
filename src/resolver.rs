@@ -1,8 +1,8 @@
 use std::collections::HashMap;
-use std::rc::Rc;
 
 use crate::{
     Token,
+    class::ClassKind,
     error::ReefError,
     expr::{Expr, ExprKind},
     func::FunctionKind,
@@ -14,6 +14,7 @@ pub struct Resolver {
     pub interpreter: Interpreter,
     scopes: Vec<HashMap<String, bool>>,
     current_function: FunctionKind,
+    current_class: ClassKind,
 }
 
 impl Resolver {
@@ -23,6 +24,7 @@ impl Resolver {
             interpreter,
             scopes,
             current_function: FunctionKind::None,
+            current_class: ClassKind::None,
         }
     }
 
@@ -81,19 +83,54 @@ impl Resolver {
                 Ok(())
             }
             StmtKind::Return { keyword: _, value } => self.resolve_return(value),
-            StmtKind::Class { name, methods: _ } => {
-                self.declare(name)?;
-                self.define(name);
-                Ok(())
-            }
+            StmtKind::Class { name, methods } => self.resolve_class(name, methods),
             _ => todo!("finish statement resolutions"),
         }
     }
 
+    fn resolve_class(&mut self, name: &Token, methods: &[StmtKind]) -> Result<(), ReefError> {
+        let enclosing_class = self.current_class.clone();
+        self.current_class = ClassKind::Class;
+        self.declare(name)?;
+        self.define(name);
+        self.begin_scope();
+        self.scopes
+            .last_mut()
+            .expect("expect this scope to exist")
+            .insert("this".to_string(), true);
+
+        for method in methods {
+            match method {
+                StmtKind::Function {
+                    name: _,
+                    parameters,
+                    body,
+                } => {
+                    let mut declaration = FunctionKind::Method;
+                    if name.lexeme == "init" {
+                        declaration = FunctionKind::Initializer;
+                    }
+                    self.resolve_fn(parameters, body, declaration)?;
+                }
+                _ => {
+                    return Err(ReefError::reef_error_at_line(
+                        name,
+                        "should be methods here",
+                    ));
+                }
+            }
+        }
+        self.end_scope();
+        self.current_class = enclosing_class;
+        Ok(())
+    }
     fn resolve_return(&mut self, value: &Expr) -> Result<(), ReefError> {
         match value.as_ref() {
             ExprKind::None => Ok(()),
             _ => match self.current_function {
+                FunctionKind::Initializer => Err(ReefError::reef_general_error(
+                    "can't return value from initializer",
+                )),
                 FunctionKind::None => {
                     Err(ReefError::reef_general_error("No top level return allowed"))
                 }
@@ -160,6 +197,16 @@ impl Resolver {
                 self.resolve_expr(object)?;
                 Ok(())
             }
+            ExprKind::This { keyword } => match self.current_class {
+                ClassKind::Class => {
+                    self.resolve_local(expression, keyword)?;
+                    Ok(())
+                }
+                ClassKind::None => Err(ReefError::reef_error_at_line(
+                    keyword,
+                    "Can't use 'this' outside of a class",
+                )),
+            },
             _ => todo!("finish expression resolutions"),
         }
     }

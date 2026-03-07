@@ -593,6 +593,10 @@ impl Parser {
             )?;
             return Ok(Rc::new(ExprKind::Grouping { expression: expr }));
         }
+        if self.match_type(&[TokenType::This]) {
+            let keyword = self.previous().expect("should be tokens here too").clone();
+            return Ok(Rc::new(ExprKind::This { keyword }));
+        }
 
         Err(ReefError::reef_error_at_line(
             &self.tokens[self.current],

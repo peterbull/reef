@@ -272,6 +272,7 @@ impl Interpreter {
                     "only instances have properties",
                 )),
             },
+            ExprKind::This { keyword } => self.lookup_variable(keyword, expr),
             _ => todo!(),
         }
     }
@@ -403,8 +404,23 @@ impl Interpreter {
                 self.environment
                     .borrow_mut()
                     .define(name.lexeme.to_string(), Value::Nil)?;
-                let class = ReefClass::new(name.lexeme.clone());
+                let mut class_methods: HashMap<String, ReefFunction> = HashMap::new();
+                for method in methods {
+                    match method {
+                        StmtKind::Function { name, .. } => {
+                            let is_init = name.lexeme == "init";
+                            let mut function =
+                                ReefFunction::new(method.clone(), Rc::clone(&self.environment))?;
+                            function.is_initializer = is_init;
+                            class_methods.insert(name.lexeme.clone(), function);
+                        }
+                        _ => {}
+                    }
+                }
+
+                let class = ReefClass::new(name.lexeme.clone(), class_methods);
                 let class_val = Value::Callable(Rc::new(class) as Rc<dyn ReefCallable>);
+
                 self.environment
                     .borrow_mut()
                     .assign(&name.lexeme, class_val)?;

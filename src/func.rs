@@ -1,3 +1,4 @@
+use crate::class::ReefInstanceRef;
 use crate::environment::{EnvRef, Environment};
 use crate::expr::Value;
 use crate::stmt::StmtKind;
@@ -10,13 +11,16 @@ pub type InterpreterFn = fn(&mut Interpreter, Vec<Value>) -> Result<Value, ReefE
 #[derive(Debug, Clone)]
 pub enum FunctionKind {
     None,
+    Method,
     Function,
+    Initializer,
 }
 
 #[derive(Debug, Clone)]
 pub struct ReefFunction {
     pub declaration: StmtKind,
     pub closure: EnvRef,
+    pub is_initializer: bool,
 }
 
 impl ReefFunction {
@@ -25,10 +29,22 @@ impl ReefFunction {
             StmtKind::Function { .. } => Ok(ReefFunction {
                 declaration,
                 closure,
+                is_initializer: false,
             }),
             _ => Err(ReefError::reef_general_error(
                 "expected stmtkind function for reef callable",
             )),
+        }
+    }
+    pub fn bind(&self, instance: ReefInstanceRef) -> ReefFunction {
+        let env = Environment::new_ref(Some(Rc::clone(&self.closure)));
+        env.borrow_mut()
+            .define("this".to_string(), Value::Instance(instance))
+            .expect("should be able to define this");
+        ReefFunction {
+            declaration: self.declaration.clone(),
+            closure: env,
+            is_initializer: self.is_initializer,
         }
     }
 }
@@ -93,8 +109,17 @@ impl ReefCallable for ReefFunction {
                     env.borrow_mut().define(param.lexeme.clone(), arg)?;
                 }
                 match interpreter.execute_block(body, env) {
+                    Err(ReefError::Return(_)) if self.is_initializer => {
+                        self.closure.borrow().get_at(&0, "this")
+                    }
                     Err(ReefError::Return(val)) => Ok(val),
-                    other => other.map(|_| Value::Nil),
+                    other => {
+                        if self.is_initializer {
+                            self.closure.borrow().get_at(&0, "this")
+                        } else {
+                            other.map(|_| Value::Nil)
+                        }
+                    }
                 }
             }
             _ => unreachable!(),
