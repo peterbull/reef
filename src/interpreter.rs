@@ -250,11 +250,28 @@ impl Interpreter {
             ExprKind::Unary { operator, right } => self.evaluate_unary(operator, right),
             ExprKind::Variable { name } => self.evaluate_variable(name, expr),
             ExprKind::None => Ok(Value::Nil),
-            // ExprKind::Get { object, name } => {
-            //     match self.evaluate(expr)? {
-            //         Value::Instance(obj) => obj,
-            //     };
-            // }
+            ExprKind::Get { name, object } => match self.evaluate(object)? {
+                Value::Instance(obj) => obj.get(name),
+                _ => Err(ReefError::reef_runtime_error(
+                    name,
+                    "only instances have properties",
+                )),
+            },
+            ExprKind::Set {
+                object,
+                name,
+                value,
+            } => match self.evaluate(object)? {
+                Value::Instance(obj) => {
+                    let value = self.evaluate(value)?;
+                    obj.set(name, value.clone())?;
+                    Ok(value)
+                }
+                _ => Err(ReefError::reef_runtime_error(
+                    name,
+                    "only instances have properties",
+                )),
+            },
             _ => todo!(),
         }
     }

@@ -43,16 +43,17 @@ impl ReefCallable for ReefClass {
         &self.name
     }
 }
-
+pub type ReefClassRef = Rc<RefCell<ReefClass>>;
+pub type ReefInstanceRef = Rc<ReefInstance>;
 #[derive(Debug, Clone)]
 pub struct ReefInstance {
-    class: Rc<ReefClass>,
+    class: ReefClassRef,
     fields: RefCell<HashMap<String, Value>>,
 }
 impl ReefInstance {
     pub fn new(class: ReefClass) -> Rc<Self> {
         Rc::new(ReefInstance {
-            class: Rc::new(class),
+            class: Rc::new(RefCell::new(class)),
             fields: RefCell::new(HashMap::new()),
         })
     }
@@ -63,9 +64,15 @@ impl ReefInstance {
         };
         Err(ReefError::reef_error_at_line(name, "Undefined property"))
     }
+    pub fn set(&self, name: &Token, value: Value) -> Result<(), ReefError> {
+        self.fields
+            .borrow_mut()
+            .insert(name.lexeme.to_string(), value);
+        Ok(())
+    }
 }
 impl ReefClassAttrs for ReefInstance {
     fn to_class_string(&self) -> String {
-        format!("{} instance", self.class.name)
+        format!("{} instance", self.class.borrow().name)
     }
 }

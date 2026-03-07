@@ -1,6 +1,6 @@
 #![allow(unused_variables, dead_code)]
 
-use crate::class::ReefInstance;
+use crate::class::{ReefClassRef, ReefInstance, ReefInstanceRef};
 use crate::{
     Literal, Token, TokenType, error::ReefError, func::ReefCallable, interpreter::Interpreter,
 };
@@ -13,7 +13,7 @@ pub enum Value {
     Boolean(bool),
     Nil,
     Callable(Rc<dyn ReefCallable>),
-    Instance(Rc<ReefInstance>),
+    Instance(ReefInstanceRef),
 }
 
 impl Value {
