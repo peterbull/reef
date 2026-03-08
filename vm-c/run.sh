@@ -3,6 +3,5 @@ set -e
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-cd "$DIR"
-cargo build
-RUST_BACKTRACE=1 ./target/debug/reef repl
+bash "$DIR/build.sh"
+"$DIR/build/main"

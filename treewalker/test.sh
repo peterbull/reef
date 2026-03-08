@@ -1,7 +1,8 @@
 #!/bin/bash
-
 set -e
 
-cargo build
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-RUST_BACKTRACE=FULL ./target/debug/reef tokenize ../reef/hello.reef
+cd "$DIR"
+cargo build
+RUST_BACKTRACE=full ./target/debug/reef tokenize "$DIR/../reef/hello.reef"
