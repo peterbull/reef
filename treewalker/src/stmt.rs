@@ -1,4 +1,4 @@
-use crate::{Token, environment::Environment, error::ReefError, expr::Expr};
+use crate::{Token, error::ReefError, expr::Expr};
 
 #[derive(Debug, Clone)]
 pub enum StmtKind {
@@ -40,21 +40,4 @@ pub enum StmtKind {
         name: Token,
         methods: Vec<StmtKind>,
     },
-}
-
-pub struct Stmt {
-    stmt: StmtKind,
-}
-
-impl Stmt {
-    pub fn new(stmt: StmtKind) -> Self {
-        Stmt { stmt }
-    }
-    pub fn execute(&mut self, stmt: &StmtKind) -> Result<(), ReefError> {
-        match stmt {
-            _ => Err(ReefError::reef_general_error(
-                "statement type not implemented",
-            )),
-        }
-    }
 }
