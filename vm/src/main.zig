@@ -1,10 +1,23 @@
 const std = @import("std");
 const vm = @import("vm");
 
+const OpCode = enum { OP_RETURN };
+
+const Chunk = struct {
+    count: i32,
+    capacity: i32,
+    code: ?[*]u8,
+    pub fn init() Chunk {
+        return Chunk{ .count = 0, .capacity = 0, .code = null };
+    }
+};
+
 pub fn main() !void {
     // Prints to stderr, ignoring potential errors.
     std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
     try vm.bufferedPrint();
+    const chunk = Chunk.init();
+    std.debug.print("chunk {any}\n", .{chunk});
 }
 
 test "simple test" {

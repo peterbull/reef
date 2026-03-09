@@ -2,35 +2,40 @@
 CC = clang
 DBG = lldb
 
-.PHONY: build-main
-build-main: build-dir
-	$(CC) -Wall -Wextra -O0 -g -o build/main src/main.c
+SRC = $(wildcard src/*.c)
+OBJ = $(SRC:src/%.c=build/%.o)
 
-.PHONY: check
-check:
-	@which $(CC) > /dev/null && echo "SUCCESS: $(CC) is installed" || echo "ERROR: $(CC) not found, please install clang"
-	@which $(DBG) > /dev/null && echo "SUCCESS: $(DBG) is installed" || echo "ERROR: $(DBG) not found, please install lldb"
+.PHONY: all run test debug debug-test check clean
 
-.PHONY: build-dir
-build-dir:
-	if [ ! -d build ]; then mkdir build; fi
+all: build/main
 
-.PHONY: build-test
-build-test: build-dir
-	$(CC) -Wall -O0 -g -o build/test src/test.c
+build:
+	mkdir -p build
 
-.PHONY: run
-run: build-main
+build/%.o: src/%.c | build
+	$(CC) -Wall -Wextra -O0 -g -c $< -o $@
+
+build/main: $(OBJ)
+	$(CC) -o $@ $(OBJ)
+
+build/test: src/test.c | build
+	$(CC) -Wall -Wextra -O0 -g -o $@ $<
+
+run: build/main
 	./build/main
 
-.PHONY: test
-test: build-test
+test: build/test
 	./build/test
 
-.PHONY: debug
-debug: build-main
+debug: build/main
 	$(DBG) ./build/main
 
-.PHONY: debug-test
-debug-test: build-test
+debug-test: build/test
 	$(DBG) ./build/test
+
+check:
+	@which $(CC)  > /dev/null && echo "SUCCESS: $(CC) found"  || echo "ERROR: $(CC) not found"
+	@which $(DBG) > /dev/null && echo "SUCCESS: $(DBG) found" || echo "ERROR: $(DBG) not found"
+
+clean:
+	rm -rf build
