@@ -6,4 +6,8 @@ target/
 *.pdb
 scratch.rs
 **/.zig-cache
-**/.zig-out
+**/zig-out
+*.preprocessed.c
+
+
+**/build/
