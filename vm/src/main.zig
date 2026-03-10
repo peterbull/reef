@@ -1,6 +1,9 @@
 const std = @import("std");
 const vm = @import("vm");
-
+const c = @cImport({
+    @cInclude("chunk.h");
+    @cInclude("common.h");
+});
 const OpCode = enum { OP_RETURN };
 
 const Chunk = struct {
@@ -18,6 +21,10 @@ pub fn main() !void {
     try vm.bufferedPrint();
     const chunk = Chunk.init();
     std.debug.print("chunk {any}\n", .{chunk});
+    var cChunk: c.Chunk = undefined;
+    c.init_chunk(&cChunk);
+    c.write_chunk(&cChunk, c.OP_RETURN);
+    std.debug.print("my c chunk: {}", .{cChunk});
 }
 
 test "simple test" {
