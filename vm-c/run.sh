@@ -3,5 +3,5 @@ set -e
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-bash "$DIR/build.sh"
-"$DIR/build/main"
+make -C "$DIR" all
+make -C "$DIR" run

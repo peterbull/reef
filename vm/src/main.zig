@@ -24,6 +24,8 @@ pub fn main() !void {
     var cChunk: c.Chunk = undefined;
     c.init_chunk(&cChunk);
     c.write_chunk(&cChunk, c.OP_RETURN);
+    c.write_chunk(&cChunk, c.OP_RETURN);
+    c.free_chunk(&cChunk);
     std.debug.print("my c chunk: {}", .{cChunk});
 }
 

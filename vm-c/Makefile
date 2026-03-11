@@ -1,16 +1,22 @@
-# You can change these variables if you want to use a different compiler or debugger
 CC = clang
 DBG = lldb
 
 SRC = $(wildcard src/*.c)
 OBJ = $(SRC:src/%.c=build/%.o)
+PREPROCESSED = $(SRC:src/%.c=preprocessed/%.preprocessed.c)
 
 .PHONY: all run test debug debug-test check clean
 
-all: build/main
+all: build/main $(PREPROCESSED)
 
 build:
 	mkdir -p build
+
+preprocessed:
+	mkdir -p preprocessed
+
+preprocessed/%.preprocessed.c: src/%.c | preprocessed
+	$(CC) -E -P $< -o $@
 
 build/%.o: src/%.c | build
 	$(CC) -Wall -Wextra -O0 -g -c $< -o $@
@@ -38,4 +44,4 @@ check:
 	@which $(DBG) > /dev/null && echo "SUCCESS: $(DBG) found" || echo "ERROR: $(DBG) not found"
 
 clean:
-	rm -rf build
+	rm -rf build preprocessed
