@@ -5,20 +5,20 @@
 void init_value_array(ValueArray *array) {
   array->count = 0;
   array->capacity = 0;
-  array->value = NULL;
+  array->values = NULL;
 }
 void write_value_array(ValueArray *array, Value value) {
   if (array->capacity < array->count + 1) {
     int old_capacity = array->capacity;
     array->capacity = GROW_CAPACITY(old_capacity);
-    array->value =
-        GROW_ARRAY(Value, array->value, old_capacity, array->capacity);
+    array->values =
+        GROW_ARRAY(Value, array->values, old_capacity, array->capacity);
   }
-  array->value[array->count] = value;
+  array->values[array->count] = value;
   array->count++;
 }
 void free_value_array(ValueArray *array) {
-  FREE_ARRAY(Value, array->value, array->count);
+  FREE_ARRAY(Value, array->values, array->count);
   init_value_array(array);
 }
 

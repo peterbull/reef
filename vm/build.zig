@@ -87,6 +87,8 @@ pub fn build(b: *std.Build) void {
         .files = &.{
             "../vm-c/src/chunk.c",
             "../vm-c/src/memory.c",
+            "../vm-c/src/debug.c",
+            "../vm-c/src/value.c",
         },
         .flags = &.{},
     });
@@ -161,4 +163,31 @@ pub fn build(b: *std.Build) void {
     //
     // Lastly, the Zig build system is relatively simple and self-contained,
     // and reading its source code will allow you to master it.
+
+    // needed to add these check steps and the zls.json to have the lsp work properly
+    const exe_check = b.addExecutable(.{
+        .name = "vm",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "vm", .module = mod },
+            },
+        }),
+    });
+    exe_check.addIncludePath(b.path("../vm-c/src"));
+    exe_check.addCSourceFiles(.{
+        .files = &.{
+            "../vm-c/src/chunk.c",
+            "../vm-c/src/memory.c",
+            "../vm-c/src/debug.c",
+            "../vm-c/src/value.c",
+        },
+        .flags = &.{},
+    });
+    exe_check.linkLibC();
+
+    const check = b.step("check", "Check if vm compiles");
+    check.dependOn(&exe_check.step);
 }
