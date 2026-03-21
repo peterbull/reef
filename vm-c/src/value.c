@@ -18,7 +18,7 @@ void write_value_array(ValueArray *array, Value value) {
   array->count++;
 }
 void free_value_array(ValueArray *array) {
-  FREE_ARRAY(Value, array->values, array->count);
+  FREE_ARRAY(Value, array->values, array->capacity);
   init_value_array(array);
 }
 
