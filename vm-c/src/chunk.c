@@ -43,6 +43,10 @@ void write_chunk(Chunk *chunk, uint8_t byte, int line) {
 
   int entries = 0;
   for (int i = 0; i < chunk->count; i += 2) {
+    if (chunk->count == 1) {
+      chunk->lines = GROW_ARRAY(int, chunk->lines, 0, 2);
+    }
+
     if (chunk->lines[i + 1] == line) {
       // increment counter for this entry
       chunk->lines[i]++;
@@ -50,14 +54,21 @@ void write_chunk(Chunk *chunk, uint8_t byte, int line) {
 
     if (i == chunk->count - 2) {
       // TODO: grow array
+      chunk->lines = GROW_ARRAY(int, chunk->lines, i, i + 2);
       chunk->lines[entries]++;
       chunk->lines[entries + 1] = line;
     }
-    entries +=2;
+
+    entries += 2;
     printf("muh chunks, %d", chunk->lines[i]);
     fflush(stdout);
   }
-
+  printf("chunk lines: ");
+  printf("[");
+  for (int i =0; i < entries; i++ ) {
+    printf("%d, ", chunk->lines[i]);
+  }
+  printf("]\n");
   // chunk->lines[chunk->count] = line;
   chunk->count++;
 }
