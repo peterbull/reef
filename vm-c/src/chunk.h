@@ -15,7 +15,9 @@ typedef struct {
   uint8_t *code;
   ValueArray constants;
   int *lines;
+  int line_entries;
 } Chunk;
+
 
 void init_chunk(Chunk *chunk);
 void write_chunk(Chunk *chunk, uint8_t byte, int line);
