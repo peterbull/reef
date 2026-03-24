@@ -22,6 +22,7 @@ void disassemble_chunk(Chunk *chunk, const char *name) {
     offset = disassemble_instruction(chunk, offset);
   }
 }
+
 int disassemble_instruction(Chunk *chunk, int offset) {
   printf("%04d ", offset);
   if (offset > 0 && chunk->lines[offset] == chunk->lines[offset - 1]) {

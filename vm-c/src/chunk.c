@@ -9,7 +9,6 @@ void init_chunk(Chunk *chunk) {
   chunk->capacity = 0;
   chunk->code = NULL;
   chunk->lines = NULL;
-  chunk->line_entries = 0;
   init_value_array(&chunk->constants);
 };
 

@@ -7,6 +7,7 @@
 typedef enum {
   OP_CONSTANT,
   OP_RETURN,
+  OP_CONSTANT_LONG
 } OpCode;
 
 typedef struct {
@@ -15,7 +16,6 @@ typedef struct {
   uint8_t *code;
   ValueArray constants;
   int *lines;
-  int line_entries;
 } Chunk;
 
 
