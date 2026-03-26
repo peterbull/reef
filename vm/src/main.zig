@@ -6,36 +6,21 @@ const c = @cImport({
     @cInclude("debug.h");
     @cInclude("value.h");
 });
-const OpCode = enum { OP_RETURN };
+const chunk_mod = @import("chunk.zig");
 
-const Chunk = struct {
-    count: i32,
-    capacity: i32,
-    code: ?[*]u8,
-    pub fn init() Chunk {
-        return Chunk{ .count = 0, .capacity = 0, .code = null };
-    }
-};
-fn test_fn(a: i32, b: i32) i32 {
-    return a + b;
-}
+const Chunk = chunk_mod.Chunk;
+const ValueArray = chunk_mod.ValueArray;
+const OpCode = chunk_mod.OpCode;
+
 pub fn main() !void {
-    // Prints to stderr, ignoring potential errors.
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
     try vm.bufferedPrint();
-    const chunk = Chunk.init();
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    var chunk = Chunk.init();
+    try chunk.writeChunk(allocator, OpCode.OP_CONSTANT, 123);
     std.debug.print("chunk {any}\n", .{chunk});
-    defer std.debug.print("hey", .{});
-    var cChunk: c.Chunk = undefined;
-    c.init_chunk(&cChunk);
-    c.write_chunk(&cChunk, c.OP_RETURN, 123);
-    const constant: u8 = @intCast(c.add_constant(&cChunk, 1.2));
-    c.write_chunk(&cChunk, c.OP_CONSTANT, 123);
-    c.write_chunk(&cChunk, constant, 123);
-    c.write_chunk(&cChunk, c.OP_RETURN, 127);
-    c.disassemble_chunk(&cChunk, "test_chunk");
-    c.free_chunk(&cChunk);
-    std.debug.print("my c chunk: {}", .{cChunk});
 }
 
 test "simple test" {
