@@ -40,6 +40,11 @@ pub fn build(b: *std.Build) void {
         // which requires us to specify a target.
         .target = target,
     });
+    const chunk_mod = b.createModule(.{
+        .root_source_file = b.path("src/chunk.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
 
     // Here we define an executable. An executable needs to have a root module
     // which needs to expose a `main` function. While we could add a main function
@@ -79,6 +84,7 @@ pub fn build(b: *std.Build) void {
                 // can be extremely useful in case of collisions (which can happen
                 // importing modules from different packages).
                 .{ .name = "vm", .module = mod },
+                .{ .name = "chunk", .module = chunk_mod },
             },
         }),
     });
@@ -173,6 +179,7 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
             .imports = &.{
                 .{ .name = "vm", .module = mod },
+                .{ .name = "chunk", .module = chunk_mod },
             },
         }),
     });

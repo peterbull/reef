@@ -6,12 +6,12 @@ const c = @cImport({
     @cInclude("debug.h");
     @cInclude("value.h");
 });
-const chunk_mod = @import("chunk.zig");
 
+const chunk_mod = @import("chunk.zig");
 const Chunk = chunk_mod.Chunk;
-const ValueArray = chunk_mod.ValueArray;
 const OpCode = chunk_mod.OpCode;
 
+const debug_mod = @import("debug.zig");
 pub fn main() !void {
     try vm.bufferedPrint();
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -19,8 +19,15 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     var chunk = Chunk.init();
+    defer chunk.freeChunk(allocator);
+    _ = try chunk.addConstant(allocator, 1.4);
+    _ = try chunk.addConstant(allocator, 1.5);
+    // const constant2 = try chunk.addConstant(allocator, 1.6);
     try chunk.writeChunk(allocator, OpCode.OP_CONSTANT, 123);
-    std.debug.print("chunk {any}\n", .{chunk});
+    try chunk.writeChunk(allocator, OpCode.OP_CONSTANT, 124);
+    try chunk.writeChunk(allocator, OpCode.OP_RETURN, 127);
+    _ = debug_mod.simpleInstruction("peter", 3);
+    debug_mod.disassembleChunk(&chunk, "test_chunk");
 }
 
 test "simple test" {
