@@ -13,10 +13,7 @@ pub fn simpleInstruction(name: []const u8, offset: usize) usize {
 
 pub fn constantInstruction(name: []const u8, chunk: *Chunk, offset: usize) usize {
     const constant: u8 = chunk.code.items.ptr[offset + 1];
-    std.debug.print("{s: >16} {d:0>4}\n", .{ name, constant });
-    printValue(chunk.constants.items.ptr[constant]);
-    std.debug.print("\n", .{});
-
+    std.debug.print("{s:<16} {d:>4} '{d}'\n", .{ name, constant, chunk.constants.items[constant] });
     return offset + 2;
 }
 
