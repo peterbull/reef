@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub const OpCode = enum { OP_CONSTANT, OP_RETURN };
+pub const OpCode = enum(u8) { OP_CONSTANT, OP_RETURN };
 
 pub const Chunk = struct {
     code: std.ArrayList(u8),

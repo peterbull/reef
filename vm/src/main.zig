@@ -17,6 +17,9 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
+    const vm = vm_mod.VM;
+    vm.init();
+
     var chunk = Chunk.init(allocator);
     defer chunk.freeChunk();
     const constant1 = try chunk.addConstant(1.4);
@@ -30,6 +33,7 @@ pub fn main() !void {
 
     _ = debug_mod.simpleInstruction("peter", 3);
     debug_mod.disassembleChunk(&chunk, "test_chunk");
+    vm.deinit();
 }
 
 test "simple test" {
