@@ -7,33 +7,46 @@ const Chunk = chunk_mod.Chunk;
 const OpCode = chunk_mod.OpCode;
 
 pub const VM = struct {
-    chunk: *Chunk,
-    ip: std.ArrayList(u8),
+    chunk: ?*Chunk,
+    ip: usize,
 
     const Self = @This();
 
-    pub fn init() void {}
-    pub fn deinit() void {}
+    pub fn init() VM {
+        return Self{ .chunk = null, .ip = 0 };
+    }
+    pub fn deinit(self: *Self) void {
+        _ = self;
+    }
     pub fn interpret(self: *Self, chunk: *Chunk) InterpretResult {
         self.chunk = chunk;
-        self.ip = self.chunk.code;
+        self.ip = 0;
 
-        @panic("TODO: not yet implemented");
+        return self.run();
     }
     fn readByte(self: *Self) u8 {
-        const byte = self.chunk.code[self.ip];
+        const byte = self.chunk.?.code.items[self.ip];
         self.ip += 1;
         return byte;
     }
-    fn run(self: *Self) void {
+    fn readConstant(self: *Self) f64 {
+        const constant = self.chunk.?.constants.items.ptr[self.readByte()];
+        return constant;
+    }
+    fn run(self: *Self) InterpretResult {
         while (true) {
             const instruction: OpCode = @enumFromInt(self.readByte());
             switch (instruction) {
-                .OP_CONSTANT => {},
-                .OP_RETURN => {},
+                .OP_CONSTANT => {
+                    const constant = self.readConstant();
+                    std.debug.print("{d}\n", .{constant});
+                },
+                .OP_RETURN => {
+                    return InterpretResult.INTERPRET_OK;
+                },
             }
         }
     }
 };
 
-var vm: VM = undefined;
+pub var vm: VM = VM.init();

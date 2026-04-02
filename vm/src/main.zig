@@ -12,14 +12,12 @@ const Chunk = chunk_mod.Chunk;
 const OpCode = chunk_mod.OpCode;
 
 const debug_mod = @import("debug.zig");
+const vm = &vm_mod.vm;
+
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
-
-    const vm = vm_mod.VM;
-    vm.init();
-
     var chunk = Chunk.init(allocator);
     defer chunk.freeChunk();
     const constant1 = try chunk.addConstant(1.4);
@@ -30,9 +28,10 @@ pub fn main() !void {
     try chunk.writeByte(@intCast(constant2), 123);
 
     try chunk.writeChunk(OpCode.OP_RETURN, 127);
-
     _ = debug_mod.simpleInstruction("peter", 3);
     debug_mod.disassembleChunk(&chunk, "test_chunk");
+
+    _ = vm.interpret(&chunk);
     vm.deinit();
 }
 
