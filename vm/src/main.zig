@@ -8,28 +8,40 @@ const c = @cImport({
 
 const chunk_mod = @import("chunk.zig");
 const vm_mod = @import("vm.zig");
+const config_mod = @import("config.zig");
 const Chunk = chunk_mod.Chunk;
 const OpCode = chunk_mod.OpCode;
+const Config = config_mod.Config;
 
 const debug_mod = @import("debug.zig");
-const vm = &vm_mod.vm;
+var vm = &vm_mod.vm;
+const VM = vm_mod.VM;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
+
+    const args = try std.process.argsAlloc(allocator);
+    defer std.process.argsFree(allocator, args);
+
+    const config = try Config.parse(args);
+
+    var vm_instance = VM.init(config);
+    vm = &vm_instance;
+
     var chunk = Chunk.init(allocator);
     defer chunk.freeChunk();
+
     const constant1 = try chunk.addConstant(1.4);
     const constant2 = try chunk.addConstant(1.6);
+
     try chunk.writeChunk(OpCode.OP_CONSTANT, 123);
     try chunk.writeByte(@intCast(constant1), 123);
-    try chunk.writeChunk(OpCode.OP_CONSTANT, 123);
-    try chunk.writeByte(@intCast(constant2), 123);
+    try chunk.writeChunk(OpCode.OP_CONSTANT, 124);
+    try chunk.writeByte(@intCast(constant2), 124);
 
     try chunk.writeChunk(OpCode.OP_RETURN, 127);
-    _ = debug_mod.simpleInstruction("peter", 3);
-    debug_mod.disassembleChunk(&chunk, "test_chunk");
 
     _ = vm.interpret(&chunk);
     vm.deinit();

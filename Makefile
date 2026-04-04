@@ -5,3 +5,6 @@ build-zig:
 
 run-zig:
 	zig build run --build-file vm/build.zig -freference-trace
+	
+run-trace:
+	zig build run --build-file vm/build.zig -freference-trace -- --debug-trace

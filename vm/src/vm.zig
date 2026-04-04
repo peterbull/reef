@@ -1,19 +1,22 @@
 const std = @import("std");
+const disassembleInstruction = @import("debug.zig").disassembleInstruction;
 
 pub const InterpretResult = enum { INTERPRET_OK, INTERPRET_COMPILE_ERROR, INTERPRET_RUNTIME_ERROR };
 
 const chunk_mod = @import("chunk.zig");
+const Config = @import("config.zig").Config;
+
 const Chunk = chunk_mod.Chunk;
 const OpCode = chunk_mod.OpCode;
 
 pub const VM = struct {
     chunk: ?*Chunk,
     ip: usize,
-
+    config: Config,
     const Self = @This();
 
-    pub fn init() VM {
-        return Self{ .chunk = null, .ip = 0 };
+    pub fn init(config: Config) VM {
+        return Self{ .chunk = null, .ip = 0, .config = config };
     }
     pub fn deinit(self: *Self) void {
         _ = self;
@@ -35,6 +38,9 @@ pub const VM = struct {
     }
     fn run(self: *Self) InterpretResult {
         while (true) {
+            if (self.config.debugTrace) {
+                _ = disassembleInstruction(self.chunk.?, self.ip);
+            }
             const instruction: OpCode = @enumFromInt(self.readByte());
             switch (instruction) {
                 .OP_CONSTANT => {
@@ -49,4 +55,4 @@ pub const VM = struct {
     }
 };
 
-pub var vm: VM = VM.init();
+pub var vm: VM = undefined;
