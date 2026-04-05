@@ -33,13 +33,22 @@ pub fn main() !void {
     var chunk = Chunk.init(allocator);
     defer chunk.freeChunk();
 
-    const constant1 = try chunk.addConstant(1.4);
-    const constant2 = try chunk.addConstant(1.6);
-
+    var constant = try chunk.addConstant(1.2);
     try chunk.writeChunk(OpCode.OP_CONSTANT, 123);
-    try chunk.writeByte(@intCast(constant1), 123);
-    try chunk.writeChunk(OpCode.OP_CONSTANT, 124);
-    try chunk.writeByte(@intCast(constant2), 124);
+    try chunk.writeByte(@intCast(constant), 123);
+
+    constant = try chunk.addConstant(3.4);
+    try chunk.writeChunk(OpCode.OP_CONSTANT, 123);
+    try chunk.writeByte(@intCast(constant), 123);
+
+    try chunk.writeChunk(OpCode.OP_ADD, 123);
+
+    constant = try chunk.addConstant(5.6);
+    try chunk.writeChunk(OpCode.OP_CONSTANT, 123);
+    try chunk.writeByte(@intCast(constant), 123);
+
+    try chunk.writeChunk(OpCode.OP_DIVIDE, 123);
+    try chunk.writeChunk(OpCode.OP_NEGATE, 123);
 
     try chunk.writeChunk(OpCode.OP_RETURN, 127);
 

@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub const OpCode = enum(u8) { OP_CONSTANT, OP_RETURN };
+pub const OpCode = enum(u8) { OP_CONSTANT, OP_ADD, OP_SUBTRACT, OP_MULTIPLY, OP_DIVIDE, OP_NEGATE, OP_RETURN };
 
 pub const Chunk = struct {
     code: std.ArrayList(u8),
@@ -25,6 +25,7 @@ pub const Chunk = struct {
     }
 
     pub fn writeByte(self: *Self, byte: u8, line: u32) !void {
+        // writes idx of constant to the code array
         try self.code.append(self.allocator, byte);
         try self.lines.append(self.allocator, line);
     }
