@@ -7,4 +7,4 @@ run-zig:
 	zig build run --build-file vm/build.zig -freference-trace
 	
 run-trace:
-	zig build run --build-file vm/build.zig -freference-trace -- --debug-trace
+	zig build run --build-file vm/build.zig -freference-trace -- ./reef/hello.reef --debug-trace

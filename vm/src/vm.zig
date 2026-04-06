@@ -1,6 +1,6 @@
 const std = @import("std");
-const disassembleInstruction = @import("debug.zig").disassembleInstruction;
-const printValue = @import("debug.zig").printValue;
+const disassemble_instruction = @import("debug.zig").disassemble_instruction;
+const print_value = @import("debug.zig").print_value;
 
 pub const InterpretResult = enum { INTERPRET_OK, INTERPRET_COMPILE_ERROR, INTERPRET_RUNTIME_ERROR };
 
@@ -17,7 +17,7 @@ pub const VM = struct {
     chunk: ?*Chunk,
     ip: usize,
     stack: [STACK_MAX]f64 = [_]f64{0} ** 256,
-    stackTop: usize = 0,
+    stack_top: usize = 0,
     config: Config,
 
     const Self = @This();
@@ -30,39 +30,40 @@ pub const VM = struct {
         _ = self;
     }
 
-    pub fn interpret(self: *Self, chunk: *Chunk) InterpretResult {
-        self.chunk = chunk;
+    pub fn interpret(self: *Self, source: []const u8) InterpretResult {
+        _ = source;
+        // self.chunk = chunk;
         self.ip = 0;
 
         return self.run();
     }
 
-    fn resetStack(self: *Self) void {
-        self.stackTop = 0;
+    fn reset_stack(self: *Self) void {
+        self.stack_top = 0;
     }
 
     fn push(self: *Self, value: f64) void {
-        self.stack[self.stackTop] = value;
-        self.stackTop += 1;
+        self.stack[self.stack_top] = value;
+        self.stack_top += 1;
     }
 
     fn pop(self: *Self) f64 {
-        self.stackTop -= 1;
-        return self.stack[self.stackTop];
+        self.stack_top -= 1;
+        return self.stack[self.stack_top];
     }
     // increments ip
-    fn readByte(self: *Self) u8 {
+    fn read_byte(self: *Self) u8 {
         const byte = self.chunk.?.code.items[self.ip];
         self.ip += 1;
         return byte;
     }
 
-    fn readConstant(self: *Self) f64 {
-        const constant = self.chunk.?.constants.items[self.readByte()];
+    fn read_constant(self: *Self) f64 {
+        const constant = self.chunk.?.constants.items[self.read_byte()];
         return constant;
     }
 
-    fn binaryOp(self: *Self, op: BinaryOp) void {
+    fn binary_op(self: *Self, op: BinaryOp) void {
         const b = self.pop();
         const a = self.pop();
         const result = switch (op) {
@@ -76,39 +77,39 @@ pub const VM = struct {
 
     fn run(self: *Self) InterpretResult {
         while (true) {
-            if (self.config.debugTrace) {
+            if (self.config.debug_trace) {
                 std.debug.print("             ", .{});
-                for (self.stack[0..self.stackTop]) |slot| {
+                for (self.stack[0..self.stack_top]) |slot| {
                     std.debug.print("[ ", .{});
-                    printValue(slot);
+                    print_value(slot);
                     std.debug.print(" ]", .{});
                 }
                 std.debug.print("\n", .{});
-                _ = disassembleInstruction(self.chunk.?, self.ip);
+                _ = disassemble_instruction(self.chunk.?, self.ip);
             }
-            const instruction: OpCode = @enumFromInt(self.readByte());
+            const instruction: OpCode = @enumFromInt(self.read_byte());
             switch (instruction) {
                 .OP_CONSTANT => {
-                    const constant = self.readConstant();
+                    const constant = self.read_constant();
                     self.push(constant);
                 },
                 .OP_NEGATE => {
                     self.push(-self.pop());
                 },
                 .OP_ADD => {
-                    self.binaryOp(BinaryOp.ADD);
+                    self.binary_op(BinaryOp.ADD);
                 },
                 .OP_SUBTRACT => {
-                    self.binaryOp(BinaryOp.SUBTRACT);
+                    self.binary_op(BinaryOp.SUBTRACT);
                 },
                 .OP_MULTIPLY => {
-                    self.binaryOp(BinaryOp.MULTIPLY);
+                    self.binary_op(BinaryOp.MULTIPLY);
                 },
                 .OP_DIVIDE => {
-                    self.binaryOp(BinaryOp.DIVIDE);
+                    self.binary_op(BinaryOp.DIVIDE);
                 },
                 .OP_RETURN => {
-                    printValue(self.pop());
+                    print_value(self.pop());
                     std.debug.print("\n", .{});
                     return InterpretResult.INTERPRET_OK;
                 },

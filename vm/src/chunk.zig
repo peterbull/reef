@@ -18,26 +18,26 @@ pub const Chunk = struct {
         };
     }
 
-    pub fn writeChunk(self: *Self, op: OpCode, line: u32) !void {
+    pub fn write_chunk(self: *Self, op: OpCode, line: u32) !void {
         const enumInt = @intFromEnum(op);
         try self.code.append(self.allocator, enumInt);
         try self.lines.append(self.allocator, line);
     }
 
-    pub fn writeByte(self: *Self, byte: u8, line: u32) !void {
-        // writes idx of constant to the code array
+    pub fn write_byte(self: *Self, byte: u8, line: u32) !void {
+        // writes idx of constant to the code array.
         try self.code.append(self.allocator, byte);
         try self.lines.append(self.allocator, line);
     }
 
-    pub fn freeChunk(
+    pub fn free_chunk(
         self: *Self,
     ) void {
         self.code.deinit(self.allocator);
         self.lines.deinit(self.allocator);
         self.constants.deinit(self.allocator);
     }
-    pub fn addConstant(self: *Self, value: f64) !usize {
+    pub fn add_constant(self: *Self, value: f64) !usize {
         try self.constants.append(self.allocator, value);
         return self.constants.items.len - 1;
     }

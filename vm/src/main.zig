@@ -12,12 +12,13 @@ const config_mod = @import("config.zig");
 const Chunk = chunk_mod.Chunk;
 const OpCode = chunk_mod.OpCode;
 const Config = config_mod.Config;
+const IterpretResult = vm_mod.InterpretResult;
 
 const debug_mod = @import("debug.zig");
 var vm = &vm_mod.vm;
 const VM = vm_mod.VM;
 
-pub fn main() !void {
+pub fn old_main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
@@ -31,29 +32,75 @@ pub fn main() !void {
     vm = &vm_instance;
 
     var chunk = Chunk.init(allocator);
-    defer chunk.freeChunk();
+    defer chunk.free_chunk();
 
-    var constant = try chunk.addConstant(1.2);
-    try chunk.writeChunk(OpCode.OP_CONSTANT, 123);
-    try chunk.writeByte(@intCast(constant), 123);
+    var constant = try chunk.add_constant(1.2);
+    try chunk.write_chunk(OpCode.OP_CONSTANT, 123);
+    try chunk.write_byte(@intCast(constant), 123);
 
-    constant = try chunk.addConstant(3.4);
-    try chunk.writeChunk(OpCode.OP_CONSTANT, 123);
-    try chunk.writeByte(@intCast(constant), 123);
+    constant = try chunk.add_constant(3.4);
+    try chunk.write_chunk(OpCode.OP_CONSTANT, 123);
+    try chunk.write_byte(@intCast(constant), 123);
 
-    try chunk.writeChunk(OpCode.OP_ADD, 123);
+    try chunk.write_chunk(OpCode.OP_ADD, 123);
+    constant = try chunk.add_constant(5.6);
+    try chunk.write_chunk(OpCode.OP_CONSTANT, 123);
+    try chunk.write_byte(@intCast(constant), 123);
 
-    constant = try chunk.addConstant(5.6);
-    try chunk.writeChunk(OpCode.OP_CONSTANT, 123);
-    try chunk.writeByte(@intCast(constant), 123);
+    try chunk.write_chunk(OpCode.OP_DIVIDE, 123);
+    try chunk.write_chunk(OpCode.OP_NEGATE, 123);
 
-    try chunk.writeChunk(OpCode.OP_DIVIDE, 123);
-    try chunk.writeChunk(OpCode.OP_NEGATE, 123);
-
-    try chunk.writeChunk(OpCode.OP_RETURN, 127);
+    try chunk.write_chunk(OpCode.OP_RETURN, 127);
 
     _ = vm.interpret(&chunk);
     vm.deinit();
+}
+fn repl() void {}
+
+fn readFile(path: []const u8) ![]const u8 {
+    var buf: [4096]u8 = undefined;
+    const file = std.fs.cwd().openFile(path, .{}) catch |err| {
+        std.debug.print(
+            "Could not open file {s}: {} ",
+            .{ path, err },
+        );
+        std.process.exit(74);
+    };
+
+    defer file.close();
+    const n = try file.read(&buf);
+    const data = buf[0..n];
+    return data;
+}
+
+fn runFile(path: []const u8) !void {
+    const source = try readFile(path);
+    const result = vm.interpret(source);
+    if (result == IterpretResult.INTERPRET_COMPILE_ERROR) std.process.exit(65);
+    if (result == IterpretResult.INTERPRET_RUNTIME_ERROR) std.process.exit(70);
+}
+
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    const args = try std.process.argsAlloc(allocator);
+    defer std.process.argsFree(allocator, args);
+
+    const config = try Config.parse(args);
+    switch (args.len) {
+        1 => repl(),
+        2 => try runFile(args[1]),
+        3 => try runFile(args[1]),
+        else => {
+            std.debug.print("Usage: reef [path]\n", .{});
+            std.process.exit(64);
+        },
+    }
+
+    var vm_instance = VM.init(config);
+    vm = &vm_instance;
 }
 
 test "simple test" {
