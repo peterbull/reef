@@ -1,3 +1,5 @@
+const std = @import("std");
+
 pub const TokenType = enum {
     // Single-character tokens.
     LEFT_PAREN,
@@ -146,10 +148,30 @@ pub const Scanner = struct {
         return self.make_token(identifier_type());
     }
 
-    fn identifier_type() TokenType {
+    fn identifier_type(self: *Self) TokenType {
+        switch (self.start[0]) {
+            'a' => return self.check_keyword(1, 2, "nd", TokenType.AND),
+            'c' => return self.check_keyword(1, 4, "lass", TokenType.CLASS),
+            'e' => return self.check_keyword(1, 3, "lse", TokenType.ELSE),
+            'i' => return self.check_keyword(1, 1, "f", TokenType.IF),
+            'n' => return self.check_keyword(1, 2, "il", TokenType.NIL),
+            'o' => return self.check_keyword(1, 1, "r", TokenType.OR),
+            'p' => return self.check_keyword(1, 4, "rint", TokenType.PRINT),
+            'r' => return self.check_keyword(1, 5, "eturn", TokenType.RETURN),
+            's' => return self.check_keyword(1, 4, "uper", TokenType.SUPER),
+            'v' => return self.check_keyword(1, 2, "ar", TokenType.VAR),
+            'w' => return self.check_keyword(1, 4, "hile", TokenType.WHILE),
+        }
         return TokenType.IDENTIFIER;
     }
-
+    fn check_keyword(self: *Self, start: usize, length: usize, rest: []const u8, token_type: TokenType) TokenType {
+        if (self.current - self.start == start + length and
+            std.mem.eql(u8, self.source[self.start + start .. self.start + start + length], rest))
+        {
+            return token_type;
+        }
+        return TokenType.IDENTIFIER;
+    }
     fn is_digit(c: u8) bool {
         return c >= '0' and c <= '9';
     }
