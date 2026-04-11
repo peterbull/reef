@@ -153,12 +153,29 @@ pub const Scanner = struct {
             'a' => return self.check_keyword(1, 2, "nd", TokenType.AND),
             'c' => return self.check_keyword(1, 4, "lass", TokenType.CLASS),
             'e' => return self.check_keyword(1, 3, "lse", TokenType.ELSE),
+            'f' => {
+                if (self.current - self.start > 1) {
+                    switch (self.start[1]) {
+                        'a' => return self.check_keyword(2, 3, "lse", TokenType.FALSE),
+                        'o' => return self.check_keyword(2, 1, "r", TokenType.FOR),
+                        'u' => return self.check_keyword(2, 1, "n", TokenType.FUN),
+                    }
+                }
+            },
             'i' => return self.check_keyword(1, 1, "f", TokenType.IF),
             'n' => return self.check_keyword(1, 2, "il", TokenType.NIL),
             'o' => return self.check_keyword(1, 1, "r", TokenType.OR),
             'p' => return self.check_keyword(1, 4, "rint", TokenType.PRINT),
             'r' => return self.check_keyword(1, 5, "eturn", TokenType.RETURN),
             's' => return self.check_keyword(1, 4, "uper", TokenType.SUPER),
+            't' => {
+                if (self.current - self.start > 1) {
+                    switch (self.start[1]) {
+                        'h' => return self.check_keyword(2, 2, "is", TokenType.THIS),
+                        'r' => return self.check_keyword(2, 2, "ue", TokenType.TRUE),
+                    }
+                }
+            },
             'v' => return self.check_keyword(1, 2, "ar", TokenType.VAR),
             'w' => return self.check_keyword(1, 4, "hile", TokenType.WHILE),
         }

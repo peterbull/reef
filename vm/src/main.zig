@@ -18,43 +18,6 @@ const debug_mod = @import("debug.zig");
 var vm = &vm_mod.vm;
 const VM = vm_mod.VM;
 
-pub fn old_main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
-
-    const args = try std.process.argsAlloc(allocator);
-    defer std.process.argsFree(allocator, args);
-
-    const config = try Config.parse(args);
-
-    var vm_instance = VM.init(config);
-    vm = &vm_instance;
-
-    var chunk = Chunk.init(allocator);
-    defer chunk.free_chunk();
-
-    var constant = try chunk.add_constant(1.2);
-    try chunk.write_chunk(OpCode.OP_CONSTANT, 123);
-    try chunk.write_byte(@intCast(constant), 123);
-
-    constant = try chunk.add_constant(3.4);
-    try chunk.write_chunk(OpCode.OP_CONSTANT, 123);
-    try chunk.write_byte(@intCast(constant), 123);
-
-    try chunk.write_chunk(OpCode.OP_ADD, 123);
-    constant = try chunk.add_constant(5.6);
-    try chunk.write_chunk(OpCode.OP_CONSTANT, 123);
-    try chunk.write_byte(@intCast(constant), 123);
-
-    try chunk.write_chunk(OpCode.OP_DIVIDE, 123);
-    try chunk.write_chunk(OpCode.OP_NEGATE, 123);
-
-    try chunk.write_chunk(OpCode.OP_RETURN, 127);
-
-    _ = vm.interpret(&chunk);
-    vm.deinit();
-}
 fn repl() void {}
 
 fn readFile(path: []const u8) ![]const u8 {
