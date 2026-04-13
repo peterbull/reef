@@ -52,7 +52,7 @@ pub const TokenType = enum {
 };
 
 pub const Token = struct {
-    type: TokenType,
+    token_type: TokenType,
     start: []const u8,
     length: usize,
     line: usize,
@@ -90,7 +90,7 @@ pub const Scanner = struct {
             ')' => return self.make_token(TokenType.RIGHT_PAREN),
             '{' => return self.make_token(TokenType.LEFT_BRACE),
             '}' => return self.make_token(TokenType.RIGHT_BRACE),
-            ',' => return self.make_token(TokenType.SEMICOLON),
+            ';' => return self.make_token(TokenType.SEMICOLON),
             ',' => return self.make_token(TokenType.COMMA),
             '.' => return self.make_token(TokenType.DOT),
             '-' => return self.make_token(TokenType.MINUS),
@@ -113,17 +113,18 @@ pub const Scanner = struct {
                 const token = if (self.match('=')) TokenType.GREATER_EQUAL else TokenType.GREATER;
                 return self.make_token(token);
             },
+            else => return self.error_token("bad token"),
         }
     }
 
     fn number(self: *Self) Token {
-        while (self.is_digit(self.peek())) {
-            self.advance();
+        while (is_digit(self.peek())) {
+            _ = self.advance();
         }
-        if (self.peek() == '.' and self.is_digit(self.peek_next())) {
-            self.advance();
-            while (self.is_digit(self.peek())) {
-                self.advance();
+        if (self.peek() == '.' and is_digit(self.peek_next())) {
+            _ = self.advance();
+            while (is_digit(self.peek())) {
+                _ = self.advance();
             }
         }
         return self.make_token(TokenType.NUMBER);
@@ -143,22 +144,24 @@ pub const Scanner = struct {
 
     fn identifier(self: *Self) Token {
         while (is_alpha(self.peek()) or is_digit(self.peek())) {
-            self.advance();
+            _ = self.advance();
         }
-        return self.make_token(identifier_type());
+        return self.make_token(self.identifier_type());
     }
 
     fn identifier_type(self: *Self) TokenType {
+        const token_len = self.start.len - self.current.len;
         switch (self.start[0]) {
             'a' => return self.check_keyword(1, 2, "nd", TokenType.AND),
             'c' => return self.check_keyword(1, 4, "lass", TokenType.CLASS),
             'e' => return self.check_keyword(1, 3, "lse", TokenType.ELSE),
             'f' => {
-                if (self.current - self.start > 1) {
+                if (token_len > 1) {
                     switch (self.start[1]) {
                         'a' => return self.check_keyword(2, 3, "lse", TokenType.FALSE),
                         'o' => return self.check_keyword(2, 1, "r", TokenType.FOR),
                         'u' => return self.check_keyword(2, 1, "n", TokenType.FUN),
+                        else => return TokenType.ERROR,
                     }
                 }
             },
@@ -169,21 +172,24 @@ pub const Scanner = struct {
             'r' => return self.check_keyword(1, 5, "eturn", TokenType.RETURN),
             's' => return self.check_keyword(1, 4, "uper", TokenType.SUPER),
             't' => {
-                if (self.current - self.start > 1) {
+                if (token_len > 1) {
                     switch (self.start[1]) {
                         'h' => return self.check_keyword(2, 2, "is", TokenType.THIS),
                         'r' => return self.check_keyword(2, 2, "ue", TokenType.TRUE),
+                        else => return TokenType.ERROR,
                     }
                 }
             },
             'v' => return self.check_keyword(1, 2, "ar", TokenType.VAR),
             'w' => return self.check_keyword(1, 4, "hile", TokenType.WHILE),
+            else => return TokenType.ERROR,
         }
         return TokenType.IDENTIFIER;
     }
     fn check_keyword(self: *Self, start: usize, length: usize, rest: []const u8, token_type: TokenType) TokenType {
-        if (self.current - self.start == start + length and
-            std.mem.eql(u8, self.source[self.start + start .. self.start + start + length], rest))
+        const token_len = self.start.len - self.current.len;
+        if (token_len == start + length and
+            std.mem.eql(u8, self.start[start .. start + length], rest))
         {
             return token_type;
         }
@@ -224,7 +230,7 @@ pub const Scanner = struct {
     }
 
     fn peek(self: *Self) u8 {
-        self.current;
+        return self.current[0];
     }
 
     fn peek_next(self: *Self) u8 {
@@ -238,23 +244,23 @@ pub const Scanner = struct {
 
     fn match(self: *Self, expected: u8) bool {
         if (self.is_at_end()) return false;
-        if (self.current != expected) return false;
-        self.current += 1;
+        if (self.current[0] != expected) return false;
+        self.current = self.current[1..];
         return true;
     }
 
     fn make_token(self: *Self, token_type: TokenType) Token {
         return Token{
-            .type = token_type,
+            .token_type = token_type,
             .start = self.start,
-            .length = self.current - self.start,
+            .length = self.start.len - self.current.len,
             .line = self.line,
         };
     }
 
     fn error_token(self: *Self, message: []const u8) Token {
         return Token{
-            .type = TokenType.ERROR,
+            .token_type = TokenType.ERROR,
             .start = message,
             .length = message.len,
             .line = self.line,
@@ -262,7 +268,8 @@ pub const Scanner = struct {
     }
 
     fn advance(self: *Self) u8 {
-        self.current += 1;
-        return self.current[-1];
+        const c = self.current[0];
+        self.current = self.current[1..];
+        return c;
     }
 };

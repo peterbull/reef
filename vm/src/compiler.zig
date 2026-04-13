@@ -1,39 +1,104 @@
+const std = @import("std");
 const Chunk = @import("chunk.zig").Chunk;
+const OpCode = @import("chunk.zig").OpCode;
 const Scanner = @import("scanner.zig").Scanner;
 const Token = @import("scanner.zig").Token;
 const TokenType = @import("scanner.zig").TokenType;
 
 pub const Compiler = struct {
-    parser: Scanner,
+    scanner: Scanner,
+    compiling_chunk: *Chunk,
     current: Token,
     previous: Token,
+    had_error: bool,
+    panic_mode: bool,
 
     const Self = @This();
 
     pub fn init(self: *Self, scanner: Scanner) void {
-        self.parser = scanner;
+        self.scanner = scanner;
+        self.panic_mode = false;
+        self.had_error = false;
+        self.current = undefined;
+        self.previous = undefined;
     }
 
-    pub fn compile(source: []const u8, chunk: *Chunk) bool {
-        _ = source;
-        _ = chunk;
-        // init_scanner(source);
-        unreachable;
+    pub fn compile(self: *Self, source: []const u8, chunk: *Chunk) bool {
+        self.scanner.init(source);
+        self.compiling_chunk = chunk;
+        self.advance();
+        // self.expression();
+        // self.advance();
+        return self.had_error;
     }
-    pub fn advance(self: *Self) void {
+
+    fn advance(self: *Self) void {
         self.previous = self.current;
         while (true) {
-            self.current = self.parser.scan_token();
-            if (self.current.type != TokenType.ERROR) {
+            self.current = self.scanner.scan_token();
+            if (self.current.token_type != TokenType.ERROR) {
                 break;
             }
         }
     }
-    pub fn error_at_current(message: []const u8) void {
-        _ = message;
+
+    fn error_at_current(self: *Self, message: []const u8) void {
+        return self.error_at(self.current, message);
     }
-    pub fn err(message: []const u8) void {
-        _ = message;
+
+    fn err(self: *Self, message: []const u8) void {
+        return self.error_at(self.previous, message);
     }
-    pub fn error_at(token: TokenType, message: []const u8) void {}
+
+    fn error_at(self: *Self, token: Token, message: []const u8) void {
+        if (self.panic_mode) {
+            return;
+        }
+        self.panic_mode = true;
+
+        std.debug.print("[line {d}]", .{token.line});
+
+        switch (token.token_type) {
+            TokenType.EOF => std.debug.print("at end", .{}),
+            TokenType.ERROR => {},
+            else => std.debug.print("at {s}", .{token.start[0..token.length]}),
+        }
+        std.debug.print(": {s}\n", .{message});
+        self.had_error = true;
+    }
+    fn consume(
+        self: *Self,
+        token_type: TokenType,
+        message: []const u8,
+    ) void {
+        if (self.current.token_type != token_type) {
+            self.advance();
+            return;
+        }
+        error_at_current(message);
+    }
+    fn expression() void {}
+    fn number(self: *Self) void {
+        _ = self.previous.start;
+    }
+    fn emit_byte(self: *Self, byte: u8) void {
+        self.compiling_chunk.write_chunk(byte, self.previous.line);
+    }
+
+    fn emit_bytes(self: *Self, byte1: u8, byte2: u8) void {
+        self.emit_byte(byte1);
+        self.emit_byte(byte2);
+    }
+
+    fn current_chunk(self: *Self) *Chunk {
+        return self.compiling_chunk;
+    }
+
+    fn end_compiler(self: *Self) void {
+        self.end_compiler();
+    }
+
+    fn emit_return(self: *Self) void {
+        self.emit_byte(OpCode.RETURN);
+    }
 };

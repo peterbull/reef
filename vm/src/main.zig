@@ -15,7 +15,6 @@ const Config = config_mod.Config;
 const IterpretResult = vm_mod.InterpretResult;
 
 const debug_mod = @import("debug.zig");
-var vm = &vm_mod.vm;
 const VM = vm_mod.VM;
 
 fn repl() void {}
@@ -36,9 +35,14 @@ fn readFile(path: []const u8) ![]const u8 {
     return data;
 }
 
-fn runFile(path: []const u8) !void {
+fn runFile(allocator: std.mem.Allocator, path: []const u8) !void {
     const source = try readFile(path);
-    const result = vm.interpret(source);
+    const config = Config{};
+    var vm: VM = undefined;
+    vm.init(allocator, config);
+    const result = vm.interpret(
+        source,
+    );
     if (result == IterpretResult.INTERPRET_COMPILE_ERROR) std.process.exit(65);
     if (result == IterpretResult.INTERPRET_RUNTIME_ERROR) std.process.exit(70);
 }
@@ -51,19 +55,15 @@ pub fn main() !void {
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
 
-    const config = try Config.parse(args);
     switch (args.len) {
         1 => repl(),
-        2 => try runFile(args[1]),
-        3 => try runFile(args[1]),
+        2 => try runFile(allocator, args[1]),
+        3 => try runFile(allocator, args[1]),
         else => {
             std.debug.print("Usage: reef [path]\n", .{});
             std.process.exit(64);
         },
     }
-
-    var vm_instance = VM.init(config);
-    vm = &vm_instance;
 }
 
 test "simple test" {

@@ -27,26 +27,26 @@ pub fn disassemble_instruction(chunk: *Chunk, offset: usize) usize {
     const instruction = chunk.code.items.ptr[offset];
     const op: OpCode = @enumFromInt(instruction);
     switch (op) {
-        .OP_CONSTANT => {
-            return constant_instruction(@tagName(OpCode.OP_CONSTANT), chunk, offset);
+        .CONSTANT => {
+            return constant_instruction(@tagName(OpCode.CONSTANT), chunk, offset);
         },
-        .OP_NEGATE => {
-            return simple_instruction(@tagName(OpCode.OP_NEGATE), offset);
+        .NEGATE => {
+            return simple_instruction(@tagName(OpCode.NEGATE), offset);
         },
-        .OP_RETURN => {
-            return simple_instruction(@tagName(OpCode.OP_RETURN), offset);
+        .RETURN => {
+            return simple_instruction(@tagName(OpCode.RETURN), offset);
         },
-        .OP_ADD => {
-            return simple_instruction(@tagName(OpCode.OP_ADD), offset);
+        .ADD => {
+            return simple_instruction(@tagName(OpCode.ADD), offset);
         },
-        .OP_SUBTRACT => {
-            return simple_instruction(@tagName(OpCode.OP_SUBTRACT), offset);
+        .SUBTRACT => {
+            return simple_instruction(@tagName(OpCode.SUBTRACT), offset);
         },
-        .OP_MULTIPLY => {
-            return simple_instruction(@tagName(OpCode.OP_MULTIPLY), offset);
+        .MULTIPLY => {
+            return simple_instruction(@tagName(OpCode.MULTIPLY), offset);
         },
-        .OP_DIVIDE => {
-            return simple_instruction(@tagName(OpCode.OP_DIVIDE), offset);
+        .DIVIDE => {
+            return simple_instruction(@tagName(OpCode.DIVIDE), offset);
         },
         // else => {
         //     std.debug.print("unknown op code {d} ", .{instruction});

@@ -6,6 +6,8 @@ pub const InterpretResult = enum { INTERPRET_OK, INTERPRET_COMPILE_ERROR, INTERP
 
 const chunk_mod = @import("chunk.zig");
 const Config = @import("config.zig").Config;
+const Compiler = @import("compiler.zig").Compiler;
+const Scanner = @import("scanner.zig").Scanner;
 
 const Chunk = chunk_mod.Chunk;
 const OpCode = chunk_mod.OpCode;
@@ -15,6 +17,7 @@ const STACK_MAX = 256;
 
 pub const VM = struct {
     chunk: ?*Chunk,
+    allocator: std.mem.Allocator,
     ip: usize,
     stack: [STACK_MAX]f64 = [_]f64{0} ** 256,
     stack_top: usize = 0,
@@ -22,8 +25,11 @@ pub const VM = struct {
 
     const Self = @This();
 
-    pub fn init(config: Config) VM {
-        return Self{ .chunk = null, .ip = 0, .config = config };
+    pub fn init(self: *Self, allocator: std.mem.Allocator, config: Config) void {
+        self.chunk = null;
+        self.ip = 0;
+        self.config = config;
+        self.allocator = allocator;
     }
 
     pub fn deinit(self: *Self) void {
@@ -31,7 +37,17 @@ pub const VM = struct {
     }
 
     pub fn interpret(self: *Self, source: []const u8) InterpretResult {
-        _ = source;
+        var chunk = Chunk.init(self.allocator);
+        defer chunk.free_chunk();
+
+        var scanner: Scanner = undefined;
+        scanner.init(source);
+        var compiler: Compiler = undefined;
+        compiler.init(scanner);
+
+        if (!compiler.compile(source, &chunk)) {
+            return InterpretResult.INTERPRET_COMPILE_ERROR;
+        }
         // self.chunk = chunk;
         self.ip = 0;
 
@@ -89,26 +105,26 @@ pub const VM = struct {
             }
             const instruction: OpCode = @enumFromInt(self.read_byte());
             switch (instruction) {
-                .OP_CONSTANT => {
+                .CONSTANT => {
                     const constant = self.read_constant();
                     self.push(constant);
                 },
-                .OP_NEGATE => {
+                .NEGATE => {
                     self.push(-self.pop());
                 },
-                .OP_ADD => {
+                .ADD => {
                     self.binary_op(BinaryOp.ADD);
                 },
-                .OP_SUBTRACT => {
+                .SUBTRACT => {
                     self.binary_op(BinaryOp.SUBTRACT);
                 },
-                .OP_MULTIPLY => {
+                .MULTIPLY => {
                     self.binary_op(BinaryOp.MULTIPLY);
                 },
-                .OP_DIVIDE => {
+                .DIVIDE => {
                     self.binary_op(BinaryOp.DIVIDE);
                 },
-                .OP_RETURN => {
+                .RETURN => {
                     print_value(self.pop());
                     std.debug.print("\n", .{});
                     return InterpretResult.INTERPRET_OK;
