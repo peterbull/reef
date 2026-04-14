@@ -13,8 +13,8 @@ const Chunk = chunk_mod.Chunk;
 const OpCode = chunk_mod.OpCode;
 const BinaryOp = enum { ADD, SUBTRACT, MULTIPLY, DIVIDE };
 
-const STACK_MAX = 256;
-
+pub const STACK_MAX = 256;
+pub const UINT8_MAX = std.math.maxInt(u8);
 pub const VM = struct {
     chunk: ?*Chunk,
     allocator: std.mem.Allocator,

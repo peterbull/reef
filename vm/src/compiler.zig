@@ -4,6 +4,7 @@ const OpCode = @import("chunk.zig").OpCode;
 const Scanner = @import("scanner.zig").Scanner;
 const Token = @import("scanner.zig").Token;
 const TokenType = @import("scanner.zig").TokenType;
+const UINT8_MAX = @import("vm.zig").UINT8_MAX;
 
 pub const Compiler = struct {
     scanner: Scanner,
@@ -66,6 +67,7 @@ pub const Compiler = struct {
         std.debug.print(": {s}\n", .{message});
         self.had_error = true;
     }
+
     fn consume(
         self: *Self,
         token_type: TokenType,
@@ -77,10 +79,44 @@ pub const Compiler = struct {
         }
         error_at_current(message);
     }
-    fn expression() void {}
+
+    fn expression(self: *Self) void {}
+
     fn number(self: *Self) void {
-        _ = self.previous.start;
+        const token = self.previous.start[0..self.previous.length];
+        const value = std.fmt.parseFloat(f64, token) catch unreachable;
+        self.emit_constant(value);
     }
+    fn grouping(self: *Self) void {
+        self.expression();
+        self.consume(TokenType.RIGHT_PAREN, "Expect ')' after expression");
+    }
+    fn unary(self: *Self) void {
+        const operator_type = self.previous.token_type;
+
+        self.expression();
+
+        switch (operator_type) {
+            .TokenType.MINUS => {
+                self.emit_byte(OpCode.NEGATE);
+            },
+            else => unreachable,
+        }
+    }
+
+    fn emit_constant(self: *Self, value: f64) void {
+        self.emit_bytes(OpCode.CONSTANT, make_constant(value));
+    }
+
+    fn make_constant(self: *Self, value: f64) usize {
+        const constant = try self.compiling_chunk.add_constant(value);
+        if (constant > UINT8_MAX) {
+            self.err("too many constants in one chunk");
+            return 0;
+        }
+        return constant;
+    }
+
     fn emit_byte(self: *Self, byte: u8) void {
         self.compiling_chunk.write_chunk(byte, self.previous.line);
     }
