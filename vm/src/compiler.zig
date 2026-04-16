@@ -6,6 +6,70 @@ const Token = @import("scanner.zig").Token;
 const TokenType = @import("scanner.zig").TokenType;
 const UINT8_MAX = @import("vm.zig").UINT8_MAX;
 
+pub const Precedence = enum {
+    NONE,
+    ASSIGNMENT, // =
+    OR, // or
+    AND, // and
+    EQUALITY, // == !=
+    COMPARISON, // < > <= >=
+    TERM, // + -
+    FACTOR, // * /
+    UNARY, // ! -
+    CALL, // . ()
+    PRIMARY,
+};
+pub const ParseFn = fn (compiler: *Compiler) void;
+pub const ParseRule = struct {
+    prefix: ?ParseFn,
+    infix: ?ParseFn,
+    precedence: Precedence,
+};
+pub const rules = std.EnumArray(TokenType, ParseRule).init({
+    TokenType.LEFT_PAREN = .{ .prefix = Compiler.grouping, .infix = null, .precedence = Precedence.NONE };
+    TokenType.RIGHT_PAREN = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.LEFT_BRACE = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.RIGHT_BRACE = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.COMMA = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.DOT = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.MINUS = .{ .prefix = Compiler.unary, .infix = Compiler.binary, .precedence = Precedence.TERM };
+    TokenType.PLUS = .{ .prefix = null, .infix = Compiler.binary, .precedence = Precedence.TERM };
+    TokenType.SEMICOLON = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.SLASH = .{ .prefix = null, .infix = Compiler.binary, .precedence = Precedence.FACTOR };
+    TokenType.STAR = .{ .prefix = null, .infix = Compiler.binary, .precedence = Precedence.FACTOR };
+    TokenType.BANG = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.BANG_EQUAL = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.EQUAL = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.EQUAL_EQUAL = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.GREATER = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.GREATER_EQUAL = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.LESS = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.LESS_EQUAL = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.IDENTIFIER = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.STRING = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.NUMBER = .{ .prefix = Compiler.number, .infix = null, .precedence = Precedence.NONE };
+    TokenType.AND = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.CLASS = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.ELSE = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.FALSE = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.FOR = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.FUN = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.IF = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.NIL = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.OR = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.PRINT = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.RETURN = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.SUPER = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.THIS = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.TRUE = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.VAR = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.WHILE = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.ERROR = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+    TokenType.EOF = .{ .prefix = null, .infix = null, .precedence = Precedence.NONE };
+});
+fn get_rule(operator_type: TokenType) *ParseRule {
+    return &rules[operator_type];
+}
 pub const Compiler = struct {
     scanner: Scanner,
     compiling_chunk: *Chunk,
@@ -79,8 +143,20 @@ pub const Compiler = struct {
         }
         error_at_current(message);
     }
-
-    fn expression(self: *Self) void {}
+    fn parse_precedence(self: *Self, precedence: Precedence) void {
+        self.advance();
+        const prefix_rule = get_rule(self.previous.token_type).prefix;
+        if (prefix_rule == null) {
+            self.err("expected expression");
+            return;
+        }
+        prefix_rule(self);
+        while (precedence <= get_rule(self.current.token_type).precedence) {
+            self.advance();
+            const infix_rule = get_rule(self.previous.token_type).infix;
+            infix_rule(self);
+        }
+    }
 
     fn number(self: *Self) void {
         const token = self.previous.start[0..self.previous.length];
@@ -94,7 +170,7 @@ pub const Compiler = struct {
     fn unary(self: *Self) void {
         const operator_type = self.previous.token_type;
 
-        self.expression();
+        self.parse_precedence(Precedence.UNARY);
 
         switch (operator_type) {
             .TokenType.MINUS => {
@@ -102,6 +178,12 @@ pub const Compiler = struct {
             },
             else => unreachable,
         }
+    }
+    fn binary(self: *Self) void {
+        const operator_type = self.previous.token_type;
+        const rule = self.get_rule(operator_type);
+        // self.parse_precedence()
+
     }
 
     fn emit_constant(self: *Self, value: f64) void {
@@ -131,7 +213,7 @@ pub const Compiler = struct {
     }
 
     fn end_compiler(self: *Self) void {
-        self.end_compiler();
+        self.emit_return();
     }
 
     fn emit_return(self: *Self) void {
