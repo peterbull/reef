@@ -5,7 +5,8 @@ const Scanner = @import("scanner.zig").Scanner;
 const Token = @import("scanner.zig").Token;
 const TokenType = @import("scanner.zig").TokenType;
 const UINT8_MAX = @import("vm.zig").UINT8_MAX;
-
+const Config = @import("config.zig").Config;
+const disassemble_chunk = @import("debug.zig").disassemble_chunk;
 pub const Precedence = enum {
     NONE,
     ASSIGNMENT, // =
@@ -77,24 +78,30 @@ pub const Compiler = struct {
     previous: Token,
     had_error: bool,
     panic_mode: bool,
+    config: *Config,
 
     const Self = @This();
 
-    pub fn init(self: *Self, scanner: Scanner) void {
+    pub fn init(self: *Self, scanner: Scanner, config: *Config) void {
         self.scanner = scanner;
         self.panic_mode = false;
         self.had_error = false;
         self.current = undefined;
         self.previous = undefined;
+        self.config = config;
     }
 
     pub fn compile(self: *Self, source: []const u8, chunk: *Chunk) bool {
         self.scanner.init(source);
         self.compiling_chunk = chunk;
         self.advance();
-        // self.expression();
-        // self.advance();
-        return self.had_error;
+        self.expression();
+        self.consume(.EOF, "Expect end of expression.");
+        self.end_compiler();
+        return !self.had_error;
+    }
+    fn expression(self: *Self) void {
+        self.parse_precedence(.ASSIGNMENT);
     }
 
     fn advance(self: *Self) void {
@@ -132,29 +139,29 @@ pub const Compiler = struct {
         self.had_error = true;
     }
 
-    fn consume(
-        self: *Self,
-        token_type: TokenType,
-        message: []const u8,
-    ) void {
-        if (self.current.token_type != token_type) {
+    fn consume(self: *Self, token_type: TokenType, message: []const u8) void {
+        if (self.current.token_type == token_type) {
             self.advance();
             return;
         }
-        error_at_current(message);
+        self.error_at_current(message);
     }
+
     fn parse_precedence(self: *Self, precedence: Precedence) void {
         self.advance();
-        const prefix_rule = get_rule(self.previous.token_type).prefix;
-        if (prefix_rule == null) {
+
+        const prefix_rule = get_rule(self.previous.token_type).prefix orelse {
             self.err("expected expression");
             return;
-        }
+        };
+
         prefix_rule(self);
-        while (precedence <= get_rule(self.current.token_type).precedence) {
+
+        while (@intFromEnum(precedence) <= @intFromEnum(get_rule(self.current.token_type).precedence)) {
             self.advance();
-            const infix_rule = get_rule(self.previous.token_type).infix;
-            infix_rule(self);
+            if (get_rule(self.previous.token_type).infix) |infix_rule| {
+                infix_rule(self);
+            }
         }
     }
 
@@ -173,34 +180,44 @@ pub const Compiler = struct {
         self.parse_precedence(Precedence.UNARY);
 
         switch (operator_type) {
-            .TokenType.MINUS => {
-                self.emit_byte(OpCode.NEGATE);
+            TokenType.MINUS => {
+                self.emit_byte(@intFromEnum(OpCode.NEGATE));
             },
             else => unreachable,
         }
     }
     fn binary(self: *Self) void {
         const operator_type = self.previous.token_type;
-        const rule = self.get_rule(operator_type);
-        // self.parse_precedence()
-
+        const rule = get_rule(operator_type);
+        const next_precedence: Precedence = @enumFromInt(@intFromEnum(rule.precedence) + 1);
+        self.parse_precedence(next_precedence);
+        switch (operator_type) {
+            TokenType.PLUS => self.emit_byte(OpCode.ADD),
+            TokenType.MINUS => self.emit_byte(OpCode.SUBTRACT),
+            TokenType.STAR => self.emit_byte(OpCode.MULTIPLY),
+            TokenType.SLASH => self.emit_byte(OpCode.DIVIDE),
+            else => unreachable,
+        }
     }
 
     fn emit_constant(self: *Self, value: f64) void {
         self.emit_bytes(OpCode.CONSTANT, make_constant(value));
     }
 
-    fn make_constant(self: *Self, value: f64) usize {
-        const constant = try self.compiling_chunk.add_constant(value);
+    fn make_constant(self: *Self, value: f64) u8 {
+        const constant = self.compiling_chunk.add_constant(value) catch {
+            self.err("too many constants in one chunk");
+            return 0;
+        };
         if (constant > UINT8_MAX) {
             self.err("too many constants in one chunk");
             return 0;
         }
-        return constant;
+        return @intCast(constant);
     }
 
-    fn emit_byte(self: *Self, byte: u8) void {
-        self.compiling_chunk.write_chunk(byte, self.previous.line);
+    fn emit_byte(self: *Self, op: OpCode) void {
+        self.compiling_chunk.write_chunk(@intFromEnum(op), self.previous.line);
     }
 
     fn emit_bytes(self: *Self, byte1: u8, byte2: u8) void {
@@ -214,6 +231,9 @@ pub const Compiler = struct {
 
     fn end_compiler(self: *Self) void {
         self.emit_return();
+        if (self.config.debug_print_code) {
+            disassemble_chunk(self.compiling_chunk, "code");
+        }
     }
 
     fn emit_return(self: *Self) void {

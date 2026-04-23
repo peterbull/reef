@@ -21,11 +21,11 @@ pub const VM = struct {
     ip: usize,
     stack: [STACK_MAX]f64 = [_]f64{0} ** 256,
     stack_top: usize = 0,
-    config: Config,
+    config: *Config,
 
     const Self = @This();
 
-    pub fn init(self: *Self, allocator: std.mem.Allocator, config: Config) void {
+    pub fn init(self: *Self, allocator: std.mem.Allocator, config: *Config) void {
         self.chunk = null;
         self.ip = 0;
         self.config = config;
@@ -43,7 +43,7 @@ pub const VM = struct {
         var scanner: Scanner = undefined;
         scanner.init(source);
         var compiler: Compiler = undefined;
-        compiler.init(scanner);
+        compiler.init(scanner, self.config);
 
         if (!compiler.compile(source, &chunk)) {
             return InterpretResult.INTERPRET_COMPILE_ERROR;

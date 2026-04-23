@@ -35,9 +35,8 @@ fn readFile(path: []const u8) ![]const u8 {
     return data;
 }
 
-fn runFile(allocator: std.mem.Allocator, path: []const u8) !void {
+fn runFile(allocator: std.mem.Allocator, path: []const u8, config: *Config) !void {
     const source = try readFile(path);
-    const config = Config{};
     var vm: VM = undefined;
     vm.init(allocator, config);
     const result = vm.interpret(
@@ -53,12 +52,15 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     const args = try std.process.argsAlloc(allocator);
+    var config = Config{};
+    try config.parse(args);
+
     defer std.process.argsFree(allocator, args);
 
     switch (args.len) {
         1 => repl(),
-        2 => try runFile(allocator, args[1]),
-        3 => try runFile(allocator, args[1]),
+        2 => try runFile(allocator, args[1], &config),
+        3 => try runFile(allocator, args[1], &config),
         else => {
             std.debug.print("Usage: reef [path]\n", .{});
             std.process.exit(64);
